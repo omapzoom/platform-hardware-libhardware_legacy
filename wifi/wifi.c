@@ -48,34 +48,23 @@ static char iface[PROPERTY_VALUE_MAX];
 // TODO: use new ANDROID_SOCKET mechanism, once support for multiple
 // sockets is in
 
-#ifndef WIFI_DRIVER_MODULE_PATH
-#define WIFI_DRIVER_MODULE_PATH         "/system/lib/modules/wlan.ko"
-#endif
-#ifndef WIFI_DRIVER_MODULE_NAME
-#define WIFI_DRIVER_MODULE_NAME         "wlan"
-#endif
-#ifndef WIFI_DRIVER_MODULE_ARG
-#define WIFI_DRIVER_MODULE_ARG          ""
-#endif
-#ifndef WIFI_FIRMWARE_LOADER
-#define WIFI_FIRMWARE_LOADER		""
-#endif
-#define WIFI_TEST_INTERFACE		"sta"
-
 static const char IFACE_DIR[]           = "/data/system/wpa_supplicant";
-static const char DRIVER_MODULE_NAME[]  = WIFI_DRIVER_MODULE_NAME;
-static const char DRIVER_MODULE_TAG[]   = WIFI_DRIVER_MODULE_NAME " ";
-static const char DRIVER_MODULE_PATH[]  = WIFI_DRIVER_MODULE_PATH;
-static const char DRIVER_MODULE_ARG[]   = WIFI_DRIVER_MODULE_ARG;
-static const char FIRMWARE_LOADER[]     = WIFI_FIRMWARE_LOADER;
+static const char DRIVER_MODULE_NAME[]  = "tiwlan_drv";
+static const char SDIO_DRIVER_MODULE_NAME[]  = "sdio";
+static const char DRIVER_MODULE_TAG[]   = "linux";
+static const char SDIO_DRIVER_MODULE_TAG[]   = "sdio";
+static const char DRIVER_MODULE_PATH[]  = "/tiwlan_drv.ko";
+static const char SDIO_DRIVER_MODULE_PATH[]  = "/sdio.ko";
+static const char FIRMWARE_LOADER[]     = "wlan_loader";
 static const char DRIVER_PROP_NAME[]    = "wlan.driver.status";
+static const char SDIO_DRIVER_PROP_NAME[]    = "sdio.wlan.driver.status";
 static const char SUPPLICANT_NAME[]     = "wpa_supplicant";
 static const char SUPP_PROP_NAME[]      = "init.svc.wpa_supplicant";
 static const char SUPP_CONFIG_TEMPLATE[]= "/system/etc/wifi/wpa_supplicant.conf";
 static const char SUPP_CONFIG_FILE[]    = "/data/misc/wifi/wpa_supplicant.conf";
 static const char MODULE_FILE[]         = "/proc/modules";
 
-static int insmod(const char *filename, const char *args)
+static int insmod(const char *filename)
 {
     void *module;
     unsigned int size;
@@ -85,7 +74,7 @@ static int insmod(const char *filename, const char *args)
     if (!module)
         return -1;
 
-    ret = init_module(module, size, args);
+    ret = init_module(module, size, "");
 
     free(module);
 
@@ -114,7 +103,7 @@ static int rmmod(const char *modname)
 int do_dhcp_request(int *ipaddr, int *gateway, int *mask,
                     int *dns1, int *dns2, int *server, int *lease) {
     /* For test driver, always report success */
-    if (strcmp(iface, WIFI_TEST_INTERFACE) == 0)
+    if (strcmp(iface, "tiwlan0") == 0)
         return 0;
 
     if (ifc_init() < 0)
@@ -150,7 +139,6 @@ static int check_driver_loaded() {
      */
     if ((proc = fopen(MODULE_FILE, "r")) == NULL) {
         LOGW("Could not open %s: %s", MODULE_FILE, strerror(errno));
-        property_set(DRIVER_PROP_NAME, "unloaded");
         return 0;
     }
     while ((fgets(line, sizeof(line), proc)) != NULL) {
@@ -167,31 +155,28 @@ static int check_driver_loaded() {
 int wifi_load_driver()
 {
     char driver_status[PROPERTY_VALUE_MAX];
-    int count = 100; /* wait at most 20 seconds for completion */
+    int count = 10; /* wait at most 20 seconds for completion */
 
     if (check_driver_loaded()) {
         return 0;
     }
+    insmod(SDIO_DRIVER_MODULE_PATH);
+    insmod(DRIVER_MODULE_PATH);
+    property_set("ctl.start", FIRMWARE_LOADER);
 
-    if (insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0)
-        return -1;
-
-    if (strcmp(FIRMWARE_LOADER,"") == 0) {
-        usleep(500000);
-        property_set(DRIVER_PROP_NAME, "ok");
-    }
-    else {
-        property_set("ctl.start", FIRMWARE_LOADER);
-    }
-    sched_yield();
     while (count-- > 0) {
-        if (property_get(DRIVER_PROP_NAME, driver_status, NULL)) {
-            if (strcmp(driver_status, "ok") == 0)
-                return 0;
-            else if (strcmp(DRIVER_PROP_NAME, "failed") == 0)
-                return -1;
-        }
-        usleep(200000);
+        usleep(500000);
+		if (property_get(DRIVER_PROP_NAME, driver_status, NULL)) {
+			if (strcmp(driver_status, "ok") == 0) {
+				property_set("ctl.start", "ifcfg_ti");
+				usleep(1000000);
+				//property_set("ctl.start", "dhcpcd");
+				return 0;
+			}
+			else if (strcmp(DRIVER_PROP_NAME, "failed") == 0) {
+				return -1;
+			}
+	    }
     }
     property_set(DRIVER_PROP_NAME, "timeout");
     return -1;
@@ -199,20 +184,19 @@ int wifi_load_driver()
 
 int wifi_unload_driver()
 {
-    int count = 20; /* wait at most 10 seconds for completion */
-
     if (rmmod(DRIVER_MODULE_NAME) == 0) {
-	while (count-- > 0) {
-	    if (!check_driver_loaded())
-		break;
-    	    usleep(500000);
-	}
-	if (count) {
-    	    return 0;
-	}
-	return -1;
-    } else
+        usleep(1000000);
+    } else {
+		LOGE("Unloading WLAN Module Failed\n");
         return -1;
+	}
+    if (rmmod(SDIO_DRIVER_MODULE_NAME) == 0) {
+        usleep(1000000);
+    } else {
+		LOGE("Unloading SDIO Module Failed\n");
+        return -1;
+	}
+    return 0;
 }
 
 int ensure_config_file_exists()
@@ -365,7 +349,8 @@ int wifi_connect_to_supplicant()
         return -1;
     }
 
-    property_get("wifi.interface", iface, WIFI_TEST_INTERFACE);
+/*    property_get("wifi.interface", iface, "sta"); */
+    property_get("wifi.interface", iface, "tiwlan0");
 
     if (access(IFACE_DIR, F_OK) == 0) {
         snprintf(ifname, sizeof(ifname), "%s/%s", IFACE_DIR, iface);
@@ -423,7 +408,7 @@ int wifi_wait_for_event(char *buf, size_t buflen)
     int result;
     struct timeval tval;
     struct timeval *tptr;
-    
+   
     if (monitor_conn == NULL)
         return 0;
 
