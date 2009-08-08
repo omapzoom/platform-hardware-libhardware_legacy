@@ -219,6 +219,13 @@ typedef struct {
     int   (*inject_time)(GpsUtcTime time, int64_t timeReference,
                          int uncertainty);
 
+    /** Injects current location from another location provider
+     *  (typically cell ID).
+     *  latitude and longitude are measured in degrees
+     *  expected accuracy is measured in meters
+     */
+    int  (*inject_location)(double latitude, double longitude, float accuracy);
+
     /**
      * Specifies that the next call to start will not use the
      * information defined in the flags. GPS_DELETE_ALL is passed for
@@ -293,9 +300,9 @@ typedef struct {
      */
     int  (*data_conn_failed)();
     /**
-     * Sets the IP address and port for the AGPS server.
+     * Sets the hostname and port for the AGPS server.
      */
-    int  (*set_server)(AGpsType type, uint32_t addr, int port );
+    int  (*set_server)( AGpsType type, const char* hostname, int port );
 } AGpsInterface;
 
 /** Returns the hardware GPS interface. */
