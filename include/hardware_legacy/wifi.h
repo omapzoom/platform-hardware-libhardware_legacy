@@ -26,14 +26,22 @@ extern "C" {
  *
  * @return 0 on success, < 0 on failure.
  */
+#ifdef OMAP_ENHANCEMENT
+int wifi_load_driver(int softap);
+#else
 int wifi_load_driver();
+#endif
 
 /**
  * Unload the Wi-Fi driver.
  *
  * @return 0 on success, < 0 on failure.
  */
+#ifdef OMAP_ENHANCEMENT
+int wifi_unload_driver(int softap);
+#else
 int wifi_unload_driver();
+#endif
 
 /**
  * Start supplicant.

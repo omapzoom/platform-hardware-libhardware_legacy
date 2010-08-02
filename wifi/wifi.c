@@ -77,6 +77,15 @@ static const char SUPP_CONFIG_TEMPLATE[]= "/system/etc/wifi/wpa_supplicant.conf"
 static const char SUPP_CONFIG_FILE[]    = "/data/misc/wifi/wpa_supplicant.conf";
 static const char MODULE_FILE[]         = "/proc/modules";
 
+#ifdef OMAP_ENHANCEMENT
+static const char AP_DRIVER_MODULE_NAME[]  = "tiap_drv";
+static const char AP_DRIVER_MODULE_TAG[]   = "tiap_drv" " ";
+static const char AP_DRIVER_MODULE_PATH[]  = "/system/etc/wifi/softap/tiap_drv.ko";
+static const char AP_DRIVER_MODULE_ARG[]   = "";
+static const char AP_FIRMWARE_LOADER[]     = "wlan_ap_loader";
+static const char AP_DRIVER_PROP_NAME[]    = "wlanap.driver.status";
+#endif
+
 static int insmod(const char *filename, const char *args)
 {
     void *module;
@@ -135,6 +144,154 @@ const char *get_dhcp_error_string() {
     return dhcp_lasterror();
 }
 
+#ifdef OMAP_ENHANCEMENT
+static int check_driver_loaded(int softap) {
+    char driver_status[PROPERTY_VALUE_MAX];
+    FILE *proc;
+    char line[sizeof(DRIVER_MODULE_TAG)+10];
+
+    if(softap) {
+        if (!property_get(AP_DRIVER_PROP_NAME, driver_status, NULL)
+                || strcmp(driver_status, "ok") != 0) {
+            return 0;  /* driver not loaded */
+        }
+    } else {
+        if (!property_get(DRIVER_PROP_NAME, driver_status, NULL)
+                || strcmp(driver_status, "ok") != 0) {
+            return 0;  /* driver not loaded */
+        }
+    }
+
+    /*
+     * If the property says the driver is loaded, check to
+     * make sure that the property setting isn't just left
+     * over from a previous manual shutdown or a runtime
+     * crash.
+     */
+    if ((proc = fopen(MODULE_FILE, "r")) == NULL) {
+        LOGW("Could not open %s: %s", MODULE_FILE, strerror(errno));
+        if(softap)
+            property_set(AP_DRIVER_PROP_NAME, "unloaded");
+        else
+            property_set(DRIVER_PROP_NAME, "unloaded");
+        return 0;
+    }
+    while ((fgets(line, sizeof(line), proc)) != NULL) {
+        if(softap) {
+            if (strncmp(line, AP_DRIVER_MODULE_TAG, strlen(AP_DRIVER_MODULE_TAG)) == 0) {
+                fclose(proc);
+                return 1;
+            }
+        } else {
+            if (strncmp(line, DRIVER_MODULE_TAG, strlen(DRIVER_MODULE_TAG)) == 0) {
+                fclose(proc);
+                return 1;
+            }
+        }
+    }
+    fclose(proc);
+
+    if(softap)
+        property_set(AP_DRIVER_PROP_NAME, "unloaded");
+    else
+        property_set(DRIVER_PROP_NAME, "unloaded");
+
+    return 0;
+}
+
+int wifi_load_driver(int softap)
+{
+    char driver_status[PROPERTY_VALUE_MAX];
+    int count = 100; /* wait at most 20 seconds for completion */
+
+    if (check_driver_loaded(softap)) {
+        return 0;
+    }
+
+    if(softap) {
+        if (insmod(AP_DRIVER_MODULE_PATH, AP_DRIVER_MODULE_ARG) < 0)
+            return -1;
+    } else {
+        if (insmod(DRIVER_MODULE_PATH, DRIVER_MODULE_ARG) < 0)
+            return -1;
+    }
+
+    if(softap) {
+        if (strcmp(AP_FIRMWARE_LOADER,"") == 0) {
+            usleep(WIFI_DRIVER_LOADER_DELAY);
+            property_set(AP_DRIVER_PROP_NAME, "ok");
+        }
+        else {
+            property_set("ctl.start", AP_FIRMWARE_LOADER);
+            usleep(WIFI_DRIVER_LOADER_DELAY);
+        }
+    } else {
+        if (strcmp(FIRMWARE_LOADER,"") == 0) {
+            usleep(WIFI_DRIVER_LOADER_DELAY);
+            property_set(DRIVER_PROP_NAME, "ok");
+        }
+        else {
+            property_set("ctl.start", FIRMWARE_LOADER);
+        }
+    }
+
+    sched_yield();
+    while (count-- > 0) {
+        if(softap) {
+            if (property_get(AP_DRIVER_PROP_NAME, driver_status, NULL)) {
+                if (strcmp(driver_status, "ok") == 0)
+                    return 0;
+                else if (strcmp(AP_DRIVER_PROP_NAME, "failed") == 0) {
+                    wifi_unload_driver(softap);
+                    return -1;
+                }
+            }
+        } else {
+            if (property_get(DRIVER_PROP_NAME, driver_status, NULL)) {
+                if (strcmp(driver_status, "ok") == 0)
+                    return 0;
+                else if (strcmp(DRIVER_PROP_NAME, "failed") == 0) {
+                    wifi_unload_driver(softap);
+                    return -1;
+                }
+            }
+        }
+        usleep(200000);
+    }
+
+    if(softap)
+        property_set(AP_DRIVER_PROP_NAME, "timeout");
+    else
+        property_set(DRIVER_PROP_NAME, "timeout");
+
+    wifi_unload_driver(softap);
+    return -1;
+}
+
+int wifi_unload_driver(int softap)
+{
+    int count = 20; /* wait at most 10 seconds for completion */
+    char MODULE_NAME [15];
+
+    if(softap)
+        strlcpy(MODULE_NAME, AP_DRIVER_MODULE_NAME, sizeof(MODULE_NAME));
+    else
+        strlcpy(MODULE_NAME, DRIVER_MODULE_NAME, sizeof(MODULE_NAME));
+
+    if (rmmod(MODULE_NAME) == 0) {
+	while (count-- > 0) {
+	    if (!check_driver_loaded(softap))
+		break;
+    	    usleep(500000);
+	}
+	if (count) {
+    	    return 0;
+	}
+	return -1;
+    } else
+        return -1;
+}
+#else
 static int check_driver_loaded() {
     char driver_status[PROPERTY_VALUE_MAX];
     FILE *proc;
@@ -219,6 +376,7 @@ int wifi_unload_driver()
     } else
         return -1;
 }
+#endif
 
 int ensure_config_file_exists()
 {
