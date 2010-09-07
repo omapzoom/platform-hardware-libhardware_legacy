@@ -26,22 +26,30 @@ extern "C" {
  *
  * @return 0 on success, < 0 on failure.
  */
-#ifdef OMAP_ENHANCEMENT
-int wifi_load_driver(int softap);
-#else
 int wifi_load_driver();
-#endif
 
 /**
  * Unload the Wi-Fi driver.
  *
  * @return 0 on success, < 0 on failure.
  */
-#ifdef OMAP_ENHANCEMENT
-int wifi_unload_driver(int softap);
-#else
 int wifi_unload_driver();
-#endif
+
+#ifdef OMAP_ENHANCEMENT
+/**
+ * Load the Hotspot driver.
+ *
+ * @return 0 on success, < 0 on failure.
+ */
+int hotspot_load_driver();
+
+/**
+ * Unload the Hotspot driver.
+ *
+ * @return 0 on success, < 0 on failure.
+ */
+int hotspot_unload_driver();
+#endif /*OMAP_ENHANCEMENT*/
 
 /**
  * Start supplicant.
