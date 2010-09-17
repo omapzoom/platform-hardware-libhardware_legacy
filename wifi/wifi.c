@@ -83,7 +83,7 @@ static const char AP_DRIVER_MODULE_TAG[]   = "tiap_drv" " ";
 static const char AP_DRIVER_MODULE_PATH[]  = "/system/etc/wifi/softap/tiap_drv.ko";
 static const char AP_DRIVER_MODULE_ARG[]   = "";
 static const char AP_FIRMWARE_LOADER[]     = "wlan_ap_loader";
-static const char AP_DRIVER_PROP_NAME[]    = "wlanap.driver.status";
+static const char AP_DRIVER_PROP_NAME[]    = "wlan.ap.driver.status";
 #endif
 
 static int insmod(const char *filename, const char *args)
