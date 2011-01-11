@@ -77,6 +77,15 @@ static const char SUPP_CONFIG_TEMPLATE[]= "/system/etc/wifi/wpa_supplicant.conf"
 static const char SUPP_CONFIG_FILE[]    = "/data/misc/wifi/wpa_supplicant.conf";
 static const char MODULE_FILE[]         = "/proc/modules";
 
+#ifdef OMAP_ENHANCEMENT
+static const char AP_DRIVER_MODULE_NAME[]  = "tiap_drv";
+static const char AP_DRIVER_MODULE_TAG[]   = "tiap_drv" " ";
+static const char AP_DRIVER_MODULE_PATH[]  = "/system/etc/wifi/softap/tiap_drv.ko";
+static const char AP_DRIVER_MODULE_ARG[]   = "";
+static const char AP_FIRMWARE_LOADER[]     = "wlan_ap_loader";
+static const char AP_DRIVER_PROP_NAME[]    = "wlan.ap.driver.status";
+#endif
+
 static int insmod(const char *filename, const char *args)
 {
     void *module;
@@ -134,6 +143,94 @@ int do_dhcp_request(int *ipaddr, int *gateway, int *mask,
 const char *get_dhcp_error_string() {
     return dhcp_lasterror();
 }
+
+#ifdef OMAP_ENHANCEMENT
+static int check_hotspot_driver_loaded() {
+    char driver_status[PROPERTY_VALUE_MAX];
+    FILE *proc;
+    char line[sizeof(AP_DRIVER_MODULE_TAG)+10];
+
+    if (!property_get(AP_DRIVER_PROP_NAME, driver_status, NULL)
+            || strcmp(driver_status, "ok") != 0) {
+        return 0;  /* driver not loaded */
+    }
+    /*
+     * If the property says the driver is loaded, check to
+     * make sure that the property setting isn't just left
+     * over from a previous manual shutdown or a runtime
+     * crash.
+     */
+    if ((proc = fopen(MODULE_FILE, "r")) == NULL) {
+        LOGW("Could not open %s: %s", MODULE_FILE, strerror(errno));
+        property_set(AP_DRIVER_PROP_NAME, "unloaded");
+        return 0;
+    }
+    while ((fgets(line, sizeof(line), proc)) != NULL) {
+        if (strncmp(line, AP_DRIVER_MODULE_TAG, strlen(AP_DRIVER_MODULE_TAG)) == 0) {
+            fclose(proc);
+            return 1;
+        }
+    }
+    fclose(proc);
+    property_set(AP_DRIVER_PROP_NAME, "unloaded");
+    return 0;
+}
+
+int hotspot_load_driver()
+{
+    char driver_status[PROPERTY_VALUE_MAX];
+    int count = 100; /* wait at most 20 seconds for completion */
+
+    if (check_hotspot_driver_loaded()) {
+        return 0;
+    }
+
+    if (insmod(AP_DRIVER_MODULE_PATH, AP_DRIVER_MODULE_ARG) < 0)
+        return -1;
+
+    if (strcmp(AP_FIRMWARE_LOADER,"") == 0) {
+        usleep(WIFI_DRIVER_LOADER_DELAY);
+        property_set(AP_DRIVER_PROP_NAME, "ok");
+    }
+    else {
+        property_set("ctl.start", AP_FIRMWARE_LOADER);
+        usleep(WIFI_DRIVER_LOADER_DELAY);
+    }
+    sched_yield();
+    while (count-- > 0) {
+        if (property_get(AP_DRIVER_PROP_NAME, driver_status, NULL)) {
+            if (strcmp(driver_status, "ok") == 0)
+                return 0;
+            else if (strcmp(AP_DRIVER_PROP_NAME, "failed") == 0) {
+                hotspot_unload_driver();
+                return -1;
+            }
+        }
+        usleep(200000);
+    }
+    property_set(AP_DRIVER_PROP_NAME, "timeout");
+    hotspot_unload_driver();
+    return -1;
+}
+
+int hotspot_unload_driver()
+{
+    int count = 20; /* wait at most 10 seconds for completion */
+
+    if (rmmod(AP_DRIVER_MODULE_NAME) == 0) {
+        while (count-- > 0) {
+            if (!check_hotspot_driver_loaded())
+                break;
+            usleep(500000);
+        }
+        if (count) {
+            return 0;
+        }
+        return -1;
+    } else
+        return -1;
+}
+#endif /* OMAP_ENHANCEMENT */
 
 static int check_driver_loaded() {
     char driver_status[PROPERTY_VALUE_MAX];

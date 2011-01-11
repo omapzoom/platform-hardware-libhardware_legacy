@@ -35,6 +35,22 @@ int wifi_load_driver();
  */
 int wifi_unload_driver();
 
+#ifdef OMAP_ENHANCEMENT
+/**
+ * Load the Hotspot driver.
+ *
+ * @return 0 on success, < 0 on failure.
+ */
+int hotspot_load_driver();
+
+/**
+ * Unload the Hotspot driver.
+ *
+ * @return 0 on success, < 0 on failure.
+ */
+int hotspot_unload_driver();
+#endif /*OMAP_ENHANCEMENT*/
+
 /**
  * Start supplicant.
  *
