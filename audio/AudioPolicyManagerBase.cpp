@@ -186,7 +186,70 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                 mpClientInterface->setParameters(activeInput, param.toString());
             }
         }
+#ifdef OMAP_ENHANCEMENT
+        else {
 
+          if (device == AudioSystem::DEVICE_IN_FM_RADIO_RX) {
+               routing_strategy strategy = getStrategy((AudioSystem::stream_type)AUDIO_STREAM_MUSIC);
+               uint32_t curOutdevice = getDeviceForStrategy(strategy);
+               /* If A2DP headset is connected then route FM to Headset */
+               if (curOutdevice == AudioSystem::DEVICE_OUT_ALL_A2DP ||
+                     curOutdevice == AudioSystem::DEVICE_OUT_BLUETOOTH_SCO ||
+                     curOutdevice == AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
+                     curOutdevice == AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT ) {
+                  curOutdevice = AudioSystem::DEVICE_OUT_WIRED_HEADSET;
+               }
+
+             if (state) {
+
+                    /* Get the new input descriptor for FM Rx In */
+                    mfmInput = getFMInput(AUDIO_SOURCE_FM_RADIO_RX,48000,1,
+                            AudioSystem::CHANNEL_IN_STEREO,(AudioSystem::audio_in_acoustics)7);
+
+                    /* Open the capture path and do the routing for FM Radio */
+                    AudioParameter param = AudioParameter();
+                    param.addInt(String8(AudioParameter::keyRouting), (int)device);
+                    param.addInt(String8(AudioParameter::keyInputSource), (int)AUDIO_SOURCE_FM_RADIO_RX);
+                    param.addInt(String8("fm_routing"), (int)device);
+                    mpClientInterface->setParameters(mfmInput, param.toString());
+
+
+                   /* Open the current output device again for
+                    * FM Rx playback path to open
+                    */
+                    LOGV("FM: Output Device = %x",curOutdevice);
+                    //setOutputDevice(mHardwareOutput, curOutdevice, true);
+                    AudioParameter param1 = AudioParameter();
+                    param1.addInt(String8("fm_routing"), (int)curOutdevice);
+                    mpClientInterface->setParameters(mHardwareOutput, param1.toString());
+
+                   /* Tell the audio flinger playback thread  & Record thread that
+                    * FM Rx is active
+                    */
+                    mpClientInterface->setFMRxActive(true);
+
+
+               } else {
+
+                   /* Tell the audio flinger playback thread that
+                    * FM Rx is not active now.
+                    */
+                    mpClientInterface->setFMRxActive(false);
+
+                   /* Release the input descriptor for FM Rx In */
+                    releaseInput(mfmInput);
+                    LOGI("FM: Capture handle for FM released");
+
+                    int newDevice=0;
+                    AudioParameter param = AudioParameter();
+                    /* Close the playback handle */
+                    param.addInt(String8("fm_routing"), (int)newDevice);
+                    mpClientInterface->setParameters(mHardwareOutput, param.toString());
+                    LOGI("FM: Playback handle for FM  released..");
+                }
+            }
+        }
+#endif
         return NO_ERROR;
     }
 
@@ -673,6 +736,58 @@ void AudioPolicyManagerBase::releaseOutput(audio_io_handle_t output)
     }
 }
 
+#ifdef OMAP_ENHANCEMENT
+audio_io_handle_t AudioPolicyManagerBase::getFMInput(int inputSource,
+                                    uint32_t samplingRate,
+                                    uint32_t format,
+                                    uint32_t channels,
+                                    AudioSystem::audio_in_acoustics acoustics)
+{
+    audio_io_handle_t input = 0;
+    uint32_t device = 0;
+
+    if (inputSource == AUDIO_SOURCE_FM_RADIO_RX)
+         device = AudioSystem::DEVICE_IN_FM_RADIO_RX;
+    else {
+         /* wrong input source */
+         return 0;
+    }
+
+    LOGV("getFMInput() inputSource %d, samplingRate %d, format %d, channels %x, acoustics %x", inputSource, samplingRate, format, channels, acoustics);
+
+
+    AudioInputDescriptor *inputDesc = new AudioInputDescriptor();
+
+    inputDesc->mInputSource = inputSource;
+    inputDesc->mDevice = device;
+    inputDesc->mSamplingRate = samplingRate;
+    inputDesc->mFormat = format;
+    inputDesc->mChannels = channels;
+    inputDesc->mAcoustics = acoustics;
+    inputDesc->mRefCount = 0;
+    input = mpClientInterface->openInput(&inputDesc->mDevice,
+                                    &inputDesc->mSamplingRate,
+                                    &inputDesc->mFormat,
+                                    &inputDesc->mChannels,
+                                    inputDesc->mAcoustics);
+
+    // only accept input with the exact requested set of parameters
+    if (input == 0 ||
+        (samplingRate != inputDesc->mSamplingRate) ||
+        (format != inputDesc->mFormat) ||
+        (channels != inputDesc->mChannels)) {
+        LOGV("getInput() failed opening input: samplingRate %d, format %d, channels %d",
+                samplingRate, format, channels);
+        if (input != 0) {
+            mpClientInterface->closeInput(input);
+        }
+        delete inputDesc;
+        return 0;
+    }
+    mInputs.add(input, inputDesc);
+    return input;
+}
+#endif
 audio_io_handle_t AudioPolicyManagerBase::getInput(int inputSource,
                                     uint32_t samplingRate,
                                     uint32_t format,
@@ -1880,6 +1995,11 @@ uint32_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
     case AUDIO_SOURCE_VOICE_CALL:
         device = AudioSystem::DEVICE_IN_VOICE_CALL;
         break;
+#ifdef OMAP_ENHANCEMENT
+    case AUDIO_SOURCE_FM_RADIO_RX:
+        device = AudioSystem::DEVICE_IN_FM_RADIO_RX;
+        break;
+#endif
     default:
         LOGW("getDeviceForInputSource() invalid input source %d", inputSource);
         device = 0;

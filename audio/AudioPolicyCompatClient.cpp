@@ -85,6 +85,12 @@ status_t AudioPolicyCompatClient::setStreamOutput(AudioSystem::stream_type strea
                                           output);
 }
 
+#ifdef OMAP_ENHANCEMENT
+status_t AudioPolicyCompatClient::setFMRxActive(bool state)
+{
+   return mServiceOps->set_FMRxActive(mService,state);
+}
+#endif
 status_t AudioPolicyCompatClient::moveEffects(int session, audio_io_handle_t srcOutput,
                                                audio_io_handle_t dstOutput)
 {
