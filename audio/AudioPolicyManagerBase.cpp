@@ -1896,6 +1896,9 @@ uint32_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy strategy,
                  device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO;
            }
         }
+        if (device2 == 0) {
+           device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_FM_RADIO_TX;
+        }
 #endif
         if (device2 == 0) {
             device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
