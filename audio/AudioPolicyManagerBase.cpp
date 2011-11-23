@@ -2329,6 +2329,9 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
                  device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO;
            }
         }
+        if (device2 == 0) {
+           device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_FM_RADIO_TX;
+        }
 #endif
         if (device2 == 0) {
             device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
@@ -3416,6 +3419,9 @@ const struct StringToEnum sDeviceNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_DEVICE_OUT_USB_DEVICE),
     STRING_TO_ENUM(AUDIO_DEVICE_OUT_USB_ACCESSORY),
     STRING_TO_ENUM(AUDIO_DEVICE_OUT_ALL_USB),
+#ifdef OMAP_ENHANCEMENT
+    STRING_TO_ENUM(AUDIO_DEVICE_OUT_FM_RADIO_TX),
+#endif
     STRING_TO_ENUM(AUDIO_DEVICE_IN_BUILTIN_MIC),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_WIRED_HEADSET),
