@@ -61,8 +61,13 @@ enum audio_source {
     AUDIO_SOURCE_CAMCORDER = 5,
     AUDIO_SOURCE_VOICE_RECOGNITION = 6,
     AUDIO_SOURCE_VOICE_COMMUNICATION = 7,
+#ifdef OMAP_ENHANCEMENT
+    AUDIO_SOURCE_FM_RADIO_RX = 9,
+    AUDIO_SOURCE_MAX = AUDIO_SOURCE_FM_RADIO_RX,
+#else
     AUDIO_SOURCE_MAX = AUDIO_SOURCE_VOICE_COMMUNICATION,
 
+#endif
     AUDIO_SOURCE_LIST_END  // must be last - used to validate audio source type
 };
 
@@ -264,6 +269,7 @@ public:
         DEVICE_IN_BACK_MIC = 0x800000,
 #ifdef OMAP_ENHANCEMENT
         DEVICE_IN_USB_HEADSET = 0x1000000,
+        DEVICE_IN_FM_RADIO_RX = 0x2000000,
 #endif
         DEVICE_IN_DEFAULT = 0x80000000,
 
@@ -272,6 +278,7 @@ public:
                 DEVICE_IN_VOICE_CALL | DEVICE_IN_BACK_MIC |
 #ifdef OMAP_ENHANCEMENT
                 DEVICE_IN_USB_HEADSET |
+                DEVICE_IN_FM_RADIO_RX |
 #endif
                 DEVICE_IN_DEFAULT)
     };

@@ -240,6 +240,10 @@ public:
     // set down link audio volume.
     virtual status_t setVoiceVolume(float volume, int delayMs = 0) = 0;
 
+#ifdef OMAP_ENHANCEMENT
+    virtual status_t setFMRxActive(bool state = false) =0;
+#endif
+
     // move effect to the specified output
     virtual status_t moveEffects(int session,
                                      audio_io_handle_t srcOutput,
