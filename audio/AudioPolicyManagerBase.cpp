@@ -2315,6 +2315,21 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
         if (device2 == 0) {
             device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET;
         }
+#ifdef OMAP_ENHANCEMENT
+        // Once SCO connection is connected, map strategy_media to
+        // SCO headset for music streaming. BT SCO MM_UL use case
+        if (mForceUse[AudioSystem::FOR_COMMUNICATION] == AudioSystem::FORCE_BT_SCO) {
+           if (device2 == 0) {
+                 device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT;
+           }
+           if (device2 == 0) {
+                 device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET;
+           }
+           if (device2 == 0) {
+                 device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO;
+           }
+        }
+#endif
         if (device2 == 0) {
             device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
         }
