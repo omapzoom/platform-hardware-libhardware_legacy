@@ -53,6 +53,9 @@ public:
                                         uint32_t acoustics);
     virtual status_t closeInput(audio_io_handle_t input);
     virtual status_t setStreamOutput(AudioSystem::stream_type stream, audio_io_handle_t output);
+#ifdef OMAP_ENHANCEMENT
+    virtual status_t setFMRxActive(bool state);
+#endif
     virtual status_t moveEffects(int session,
                                  audio_io_handle_t srcOutput,
                                  audio_io_handle_t dstOutput);
