@@ -1825,6 +1825,10 @@ uint32_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy strategy,
             if (device) break;
             device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET;
             if (device) break;
+#if defined(OMAP_ENHANCEMENT)
+            device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WFD;
+            if (device) break;
+#endif
             device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
             if (device == 0) {
                 LOGE("getDeviceForStrategy() speaker device not found");
@@ -1898,6 +1902,9 @@ uint32_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy strategy,
         }
         if (device2 == 0) {
            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_FM_RADIO_TX;
+        }
+        if (device2 == 0) {
+            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WFD;
         }
 #endif
         if (device2 == 0) {
@@ -2016,6 +2023,9 @@ uint32_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
 #ifdef OMAP_ENHANCEMENT
     case AUDIO_SOURCE_FM_RADIO_RX:
         device = AudioSystem::DEVICE_IN_FM_RADIO_RX;
+        break;
+    case AUDIO_SOURCE_WFD:
+        device = AudioSystem::DEVICE_IN_WFD;
         break;
 #endif
     default:
