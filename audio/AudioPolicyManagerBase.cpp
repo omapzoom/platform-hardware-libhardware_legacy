@@ -812,7 +812,7 @@ audio_io_handle_t AudioPolicyManagerBase::getInput(int inputSource,
         channels = AudioSystem::CHANNEL_IN_VOICE_DNLINK;
         break;
     case AUDIO_SOURCE_VOICE_CALL:
-        channels = (AudioSystem::CHANNEL_IN_VOICE_UPLINK | AudioSystem::CHANNEL_IN_VOICE_DNLINK);
+        channels = (AudioSystem::CHANNEL_IN_VOICE_UPLINK_DNLINK);
         break;
     default:
         break;
