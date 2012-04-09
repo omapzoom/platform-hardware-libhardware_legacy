@@ -83,7 +83,34 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                     mScoDeviceAddress = String8(device_address, MAX_DEVICE_ADDRESS_LEN);
                 }
             }
-            break;
+#if defined(OMAP_ENHANCEMENT)
+            if (device == AudioSystem::DEVICE_OUT_WFD) {
+                // open WFD output
+                AudioOutputDescriptor *outputDesc = new AudioOutputDescriptor();
+                outputDesc->mDevice = device;
+                mWFDOutput = mpClientInterface->openOutput(&outputDesc->mDevice,
+                                    &outputDesc->mSamplingRate,
+                                    &outputDesc->mFormat,
+                                    &outputDesc->mChannels,
+                                    &outputDesc->mLatency,
+                                    outputDesc->mFlags);
+                if (mWFDOutput == 0) {
+                    LOGE("Failed to initialize hardware output stream, samplingRate: %d, format %d, channels %d",
+                        outputDesc->mSamplingRate, outputDesc->mFormat, outputDesc->mChannels);
+                } else {
+                    addOutput(mWFDOutput, outputDesc);
+                }
+               for (int i = 0; i < (int)AudioSystem::NUM_STREAM_TYPES; i++) {
+                   for (int j = 0; j < (int)AudioPolicyManagerBase::NUM_STRATEGIES; j++) {
+                       if (getStrategy((AudioSystem::stream_type)i) == ((AudioPolicyManagerBase::routing_strategy)j)) {
+                                mpClientInterface->setStreamOutput((AudioSystem::stream_type)i, mWFDOutput);
+                       }
+                       break;
+                   }
+               }
+           }
+#endif
+        break;
         // handle output device disconnection
         case AudioSystem::DEVICE_STATE_UNAVAILABLE: {
             if (!(mAvailableOutputDevices & device)) {
@@ -126,6 +153,26 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
         // A2DP outputs must be closed after checkOutputForAllStrategies() is executed
         if (state == AudioSystem::DEVICE_STATE_UNAVAILABLE && AudioSystem::isA2dpDevice(device)) {
             closeA2dpOutputs();
+        }
+#endif
+#if defined(OMAP_ENHANCEMENT)
+        if (device == AudioSystem::DEVICE_OUT_WFD && state == AudioSystem::DEVICE_STATE_UNAVAILABLE) {
+            if (mWFDOutput != 0){
+                for (int i = 0; i < (int)AudioSystem::NUM_STREAM_TYPES; i++) {
+                    for (int j = 0; j < (int)AudioPolicyManagerBase::NUM_STRATEGIES; j++) {
+                        if (getStrategy((AudioSystem::stream_type)i) == ((AudioPolicyManagerBase::routing_strategy)j)) {
+                                mpClientInterface->setStreamOutput((AudioSystem::stream_type)i, mHardwareOutput);
+                        }
+                        break;
+                    }
+                }
+
+                AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mWFDOutput);
+                mpClientInterface->closeOutput(mWFDOutput);
+                mOutputs.removeItem(mWFDOutput);
+                delete hwOutputDesc;
+                mWFDOutput = 0;
+           }
         }
 #endif
         updateDeviceForStrategy();
@@ -578,6 +625,9 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
     // get which output is suitable for the specified stream. The actual routing change will happen
     // when startOutput() will be called
     uint32_t a2dpDevice = device & AudioSystem::DEVICE_OUT_ALL_A2DP;
+#if defined(OMAP_ENHANCEMENT)
+    uint32_t wfdDevice = device & AudioSystem::DEVICE_OUT_WFD;
+#endif
     if (AudioSystem::popCount((AudioSystem::audio_devices)device) == 2) {
 #ifdef WITH_A2DP
         if (a2dpUsedForSonification() && a2dpDevice != 0) {
@@ -591,6 +641,11 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             // if playing on 2 devices among which none is A2DP, use hardware output
             output = mHardwareOutput;
         }
+#if defined(OMAP_ENHANCEMENT)
+        if (wfdDevice != 0) {  //if WFD present second output to WFD output as well
+            output = mWFDOutput;
+        }
+#endif
         LOGV("getOutput() using output %d for 2 devices %x", output, device);
     } else {
 #ifdef WITH_A2DP
@@ -604,6 +659,14 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             // if playing on not A2DP device, use hardware output
             output = mHardwareOutput;
         }
+#if defined(OMAP_ENHANCEMENT)
+        if (wfdDevice != 0)
+        {
+            //use WFD output
+            output = mWFDOutput;
+        }
+#endif
+
     }
 
 
@@ -1952,6 +2015,13 @@ void AudioPolicyManagerBase::setOutputDevice(audio_io_handle_t output, uint32_t 
         device &= AudioSystem::DEVICE_OUT_ALL_A2DP;
     } else {
         device &= ~AudioSystem::DEVICE_OUT_ALL_A2DP;
+    }
+#endif
+#if defined(OMAP_ENHANCEMENT)
+    if (output == mWFDOutput) {
+        device &= AudioSystem::DEVICE_OUT_WFD;
+    } else {
+        device &= ~AudioSystem::DEVICE_OUT_WFD;
     }
 #endif
 

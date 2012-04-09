@@ -356,6 +356,9 @@ protected:
         audio_io_handle_t mHardwareOutput;              // hardware output handler
         audio_io_handle_t mA2dpOutput;                  // A2DP output handler
         audio_io_handle_t mDuplicatedOutput;            // duplicated output handler: outputs to hardware and A2DP.
+#if defined(OMAP_ENHANCEMENT)
+        audio_io_handle_t mWFDOutput;                   // WFD output handler
+#endif
 
         KeyedVector<audio_io_handle_t, AudioOutputDescriptor *> mOutputs;   // list of output descriptors
         KeyedVector<audio_io_handle_t, AudioInputDescriptor *> mInputs;     // list of input descriptors
