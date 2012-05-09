@@ -95,20 +95,15 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                                     &outputDesc->mLatency,
                                     outputDesc->mFlags);
                 if (mWFDOutput == 0) {
-                    LOGE("Failed to initialize hardware output stream, samplingRate: %d, format %d, channels %d",
-                        outputDesc->mSamplingRate, outputDesc->mFormat, outputDesc->mChannels);
+                    LOGE("Init failed samplingRate: %d, format %d, channels %d",
+                        outputDesc->mSamplingRate, outputDesc->mFormat,
+                          outputDesc->mChannels);
                 } else {
                     addOutput(mWFDOutput, outputDesc);
                 }
-               for (int i = 0; i < (int)AudioSystem::NUM_STREAM_TYPES; i++) {
-                   for (int j = 0; j < (int)AudioPolicyManagerBase::NUM_STRATEGIES; j++) {
-                       if (getStrategy((AudioSystem::stream_type)i) == ((AudioPolicyManagerBase::routing_strategy)j)) {
-                                mpClientInterface->setStreamOutput((AudioSystem::stream_type)i, mWFDOutput);
-                       }
-                       break;
-                   }
-               }
-           }
+                // ONLY move MUSIC stream types to mWFDOutput
+                mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mWFDOutput);
+            }
 #endif
         break;
         // handle output device disconnection
@@ -156,16 +151,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
         }
 #endif
 #if defined(OMAP_ENHANCEMENT)
-        if (device == AudioSystem::DEVICE_OUT_WFD && state == AudioSystem::DEVICE_STATE_UNAVAILABLE) {
+        if (device == AudioSystem::DEVICE_OUT_WFD && state ==
+          AudioSystem::DEVICE_STATE_UNAVAILABLE) {
             if (mWFDOutput != 0){
-                for (int i = 0; i < (int)AudioSystem::NUM_STREAM_TYPES; i++) {
-                    for (int j = 0; j < (int)AudioPolicyManagerBase::NUM_STRATEGIES; j++) {
-                        if (getStrategy((AudioSystem::stream_type)i) == ((AudioPolicyManagerBase::routing_strategy)j)) {
-                                mpClientInterface->setStreamOutput((AudioSystem::stream_type)i, mHardwareOutput);
-                        }
-                        break;
-                    }
-                }
+                // Move stream types MUSIC back to mHardwareOutput
+                mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
 
                 AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mWFDOutput);
                 mpClientInterface->closeOutput(mWFDOutput);
@@ -642,7 +632,7 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             output = mHardwareOutput;
         }
 #if defined(OMAP_ENHANCEMENT)
-        if (wfdDevice != 0) {  //if WFD present second output to WFD output as well
+        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC)) {
             output = mWFDOutput;
         }
 #endif
@@ -660,7 +650,7 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             output = mHardwareOutput;
         }
 #if defined(OMAP_ENHANCEMENT)
-        if (wfdDevice != 0)
+        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC))
         {
             //use WFD output
             output = mWFDOutput;
