@@ -122,6 +122,9 @@ public:
         virtual bool isStreamActive(int stream, uint32_t inPastMs = 0) const;
 
         virtual status_t dump(int fd);
+#ifdef OMAP_ENHANCEMENT
+        int mStreamExclusiveActive;
+#endif
 
 #ifdef OMAP_ENHANCEMENT
      /* get Fm input source */

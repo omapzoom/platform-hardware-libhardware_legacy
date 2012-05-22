@@ -101,8 +101,9 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                 } else {
                     addOutput(mWFDOutput, outputDesc);
                 }
-                // ONLY move MUSIC stream types to mWFDOutput
+                //Initially move audio stream types MUSIC and EXCLUSIVE to WFD output thread
                 mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mWFDOutput);
+                mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mWFDOutput);
             }
 #endif
         break;
@@ -154,8 +155,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
         if (device == AudioSystem::DEVICE_OUT_WFD && state ==
           AudioSystem::DEVICE_STATE_UNAVAILABLE) {
             if (mWFDOutput != 0){
-                // Move stream types MUSIC back to mHardwareOutput
+                // Move stream types MUSIC and EXCLUSIVE back to mHardwareOutput
                 mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+                mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mHardwareOutput);
+                mStreamExclusiveActive = 0;
+
 
                 AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mWFDOutput);
                 mpClientInterface->closeOutput(mWFDOutput);
@@ -632,9 +636,17 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             output = mHardwareOutput;
         }
 #if defined(OMAP_ENHANCEMENT)
-        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC)) {
+        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::EXCLUSIVE)) {
+            // use WFD thread move MUSIC streams back to default thread
+            output = mWFDOutput;
+            mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+            mStreamExclusiveActive = 1;
+        }
+        else if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) && !mStreamExclusiveActive) {
+            // use WFD thread
             output = mWFDOutput;
         }
+
 #endif
         LOGV("getOutput() using output %d for 2 devices %x", output, device);
     } else {
@@ -650,9 +662,14 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             output = mHardwareOutput;
         }
 #if defined(OMAP_ENHANCEMENT)
-        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC))
-        {
-            //use WFD output
+        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::EXCLUSIVE)) {
+            //use WFD thread move MUSIC streams back to default thread
+            output = mWFDOutput;
+            mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+            mStreamExclusiveActive = 1;
+        }
+        else if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) && !mStreamExclusiveActive) {
+            //use WFD thread
             output = mWFDOutput;
         }
 #endif
@@ -1796,6 +1813,9 @@ AudioPolicyManagerBase::routing_strategy AudioPolicyManagerBase::getStrategy(
         // while key clicks are played produces a poor result
     case AudioSystem::TTS:
     case AudioSystem::MUSIC:
+#ifdef OMAP_ENHANCEMENT
+    case AudioSystem::EXCLUSIVE:
+#endif
         return STRATEGY_MEDIA;
     case AudioSystem::ENFORCED_AUDIBLE:
         return STRATEGY_ENFORCED_AUDIBLE;
