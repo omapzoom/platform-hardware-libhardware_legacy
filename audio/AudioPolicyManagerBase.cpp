@@ -247,24 +247,27 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                     */
                     ALOGV("FM: Output Device = %x",curOutdevice);
                     //setOutputDevice(mPrimaryOutput, curOutdevice, true);
+                    AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mPrimaryOutput);
+                    hwOutputDesc->mRefCount[AudioSystem::MUSIC]++;
                     AudioParameter param1 = AudioParameter();
                     param1.addInt(String8("fm_routing"), (int)curOutdevice);
                     mpClientInterface->setParameters(mPrimaryOutput, param1.toString());
 
-                   /* Tell the audio flinger playback thread  & Record thread that
-                    * FM Rx is active
-                    */
+                    /* Tell the audio flinger playback thread & Record thread that
+                     * FM Rx is active */
                     mpClientInterface->setFMRxActive(true);
 
                } else {
+                    AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mPrimaryOutput);
+                    hwOutputDesc->mRefCount[AudioSystem::MUSIC]--;
 
-                   /* Tell the audio flinger playback thread that
-                    * FM Rx is not active now.
-                    */
+                    /* Tell the audio flinger playback thread that
+                     * FM Rx is not active now */
                     mpClientInterface->setFMRxActive(false);
 
-                   /* Release the input descriptor for FM Rx In */
+                    /* Release the input descriptor for FM Rx In */
                     releaseInput(mfmInput);
+                    mfmInput = NULL;
                     ALOGI("FM: Capture handle for FM released");
 
                     int newDevice=0;
@@ -2954,6 +2957,17 @@ void AudioPolicyManagerBase::setStreamMute(int stream,
                               delayMs);
         }
     }
+#ifdef OMAP_ENHANCEMENT
+    if (mfmInput && (stream == AudioSystem::MUSIC) && (output == mPrimaryOutput)) {
+        AudioParameter param = AudioParameter();
+        if (on) {
+            param.addInt(String8("fm_mute"), 1);
+        } else {
+            param.addInt(String8("fm_mute"), 0);
+        }
+        mpClientInterface->setParameters(mPrimaryOutput, param.toString());
+    }
+#endif
 }
 
 void AudioPolicyManagerBase::handleIncallSonification(int stream, bool starting, bool stateChange)
