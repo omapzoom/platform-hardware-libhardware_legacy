@@ -254,31 +254,31 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
                     param.addInt(String8("fm_routing"), (int)device);
                     mpClientInterface->setParameters(mfmInput, param.toString());
 
-
-                   /* Open the current output device again for
-                    * FM Rx playback path to open
-                    */
+                    /* Open the current output device again for
+                     * FM Rx playback path to open */
                     LOGV("FM: Output Device = %x",curOutdevice);
                     //setOutputDevice(mHardwareOutput, curOutdevice, true);
+                    AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mHardwareOutput);
+                    hwOutputDesc->mRefCount[AudioSystem::MUSIC]++;
                     AudioParameter param1 = AudioParameter();
                     param1.addInt(String8("fm_routing"), (int)curOutdevice);
                     mpClientInterface->setParameters(mHardwareOutput, param1.toString());
 
-                   /* Tell the audio flinger playback thread  & Record thread that
-                    * FM Rx is active
-                    */
+                    /* Tell the audio flinger playback thread & Record thread that
+                     * FM Rx is active */
                     mpClientInterface->setFMRxActive(true);
 
+                } else {
+                    AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mHardwareOutput);
+                    hwOutputDesc->mRefCount[AudioSystem::MUSIC]--;
 
-               } else {
-
-                   /* Tell the audio flinger playback thread that
-                    * FM Rx is not active now.
-                    */
+                    /* Tell the audio flinger playback thread that
+                     * FM Rx is not active now */
                     mpClientInterface->setFMRxActive(false);
 
-                   /* Release the input descriptor for FM Rx In */
+                    /* Release the input descriptor for FM Rx In */
                     releaseInput(mfmInput);
+                    mfmInput = NULL;
                     LOGI("FM: Capture handle for FM released");
 
                     int newDevice=0;
@@ -2431,6 +2431,17 @@ void AudioPolicyManagerBase::setStreamMute(int stream, bool on, audio_io_handle_
             checkAndSetVolume(stream, streamDesc.mIndexCur, output, outputDesc->device(), delayMs);
         }
     }
+#ifdef OMAP_ENHANCEMENT
+    if (mfmInput && (stream == AudioSystem::MUSIC) && (output == mHardwareOutput)) {
+        AudioParameter param = AudioParameter();
+        if (on) {
+            param.addInt(String8("fm_mute"), 1);
+        } else {
+            param.addInt(String8("fm_mute"), 0);
+        }
+        mpClientInterface->setParameters(mHardwareOutput, param.toString());
+    }
+#endif
 }
 
 void AudioPolicyManagerBase::handleIncallSonification(int stream, bool starting, bool stateChange)
