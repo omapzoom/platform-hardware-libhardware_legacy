@@ -704,6 +704,13 @@ status_t AudioPolicyManagerBase::startOutput(audio_io_handle_t output,
     }
 #endif
 
+#ifdef OMAP_ENHANCEMENT
+    if (strategy == STRATEGY_SONIFICATION) {
+        setStrategyMute(STRATEGY_MEDIA, true, output);
+        usleep(outputDesc->mLatency * 2 * 1000);
+    }
+#endif
+
     // incremenent usage count for this stream on the requested output:
     // NOTE that the usage count is the same for duplicated output and hardware output which is
     // necassary for a correct control of hardware output routing by startOutput() and stopOutput()
@@ -757,6 +764,12 @@ status_t AudioPolicyManagerBase::stopOutput(audio_io_handle_t output,
 
         setOutputDevice(output, getNewDevice(output), false, outputDesc->mLatency*2);
 
+#ifdef OMAP_ENHANCEMENT
+    if (strategy == STRATEGY_SONIFICATION) {
+        setStrategyMute(STRATEGY_MEDIA, false, output,
+                        mOutputs.valueFor(mHardwareOutput)->mLatency * 2);
+    }
+#endif
 #ifdef WITH_A2DP
         if (mA2dpOutput != 0 && !a2dpUsedForSonification() &&
                 (strategy == STRATEGY_SONIFICATION || strategy == STRATEGY_ENFORCED_AUDIBLE)) {
@@ -1987,6 +2000,14 @@ uint32_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy strategy,
         // device is DEVICE_OUT_SPEAKER if we come from case STRATEGY_SONIFICATION or
         // STRATEGY_ENFORCED_AUDIBLE, 0 otherwise
         device |= device2;
+#ifdef OMAP_ENHANCEMENT
+        if (strategy == STRATEGY_SONIFICATION) {
+            if ((device & AudioSystem::DEVICE_OUT_AUX_DIGITAL) &&
+                (AudioSystem::popCount(device) > 1)) {
+                device &= ~AudioSystem::DEVICE_OUT_AUX_DIGITAL;
+            }
+        }
+#endif
         if (device == 0) {
             LOGE("getDeviceForStrategy() speaker device not found");
         }
