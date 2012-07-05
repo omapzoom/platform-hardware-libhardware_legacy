@@ -942,13 +942,21 @@ status_t AudioPolicyManagerBase::startInput(audio_io_handle_t input)
         return BAD_VALUE;
     }
     AudioInputDescriptor *inputDesc = mInputs.valueAt(index);
+#ifdef OMAP_ENHANCEMENT
+    if (inputDesc->mInputSource == AUDIO_SOURCE_WFD)
+        mWFDInputInUse = 1;
+#endif
 
 #ifdef AUDIO_POLICY_TEST
     if (mTestInput == 0)
 #endif //AUDIO_POLICY_TEST
     {
+#ifdef OMAP_ENHANCEMENT
+        if ( ((index > 0) && !(mWFDInputInUse)) || ((index > 1) && (mWFDInputInUse))  ) {
+#else
         // refuse 2 active AudioRecord clients at the same time
         if (getActiveInput() != 0) {
+#endif
             LOGW("startInput() input %d failed: other input already started", input);
             return INVALID_OPERATION;
         }
@@ -980,6 +988,10 @@ status_t AudioPolicyManagerBase::stopInput(audio_io_handle_t input)
         LOGW("stopInput() input %d already stopped", input);
         return INVALID_OPERATION;
     } else {
+#ifdef OMAP_ENHANCEMENT
+        if (inputDesc->mInputSource == AUDIO_SOURCE_WFD)
+            mWFDInputInUse = 0;
+#endif
         AudioParameter param = AudioParameter();
         param.addInt(String8(AudioParameter::keyRouting), 0);
         mpClientInterface->setParameters(input, param.toString());
@@ -1286,6 +1298,10 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     mA2dpDeviceAddress = String8("");
 #endif
     mScoDeviceAddress = String8("");
+#ifdef OMAP_ENHANCEMENT
+    mStreamExclusiveActive = 0;
+    mWFDInputInUse = 0;
+#endif
 
     // open hardware output
     AudioOutputDescriptor *outputDesc = new AudioOutputDescriptor();

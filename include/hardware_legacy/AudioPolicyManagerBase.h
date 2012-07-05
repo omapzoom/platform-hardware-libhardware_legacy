@@ -124,6 +124,7 @@ public:
         virtual status_t dump(int fd);
 #ifdef OMAP_ENHANCEMENT
         int mStreamExclusiveActive;
+        bool mWFDInputInUse;
 #endif
 
 #ifdef OMAP_ENHANCEMENT
