@@ -181,6 +181,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
+#ifdef OMAP_ENHANCEMENT
+        } else if ((device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET) ||
+                    (device == AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET)) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
+#endif
         } else {
             return NO_ERROR;
         }
@@ -2435,6 +2440,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
             device = AUDIO_DEVICE_IN_BUILTIN_MIC;
+#ifdef OMAP_ENHANCEMENT
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_USB_HEADSET) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
+#endif
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
