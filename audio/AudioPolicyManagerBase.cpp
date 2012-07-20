@@ -187,6 +187,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_HEADSET ||
                    device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO_CARKIT) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
+#ifdef OMAP_ENHANCEMENT
+        } else if ((device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET) ||
+                    (device == AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET)) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
+#endif
         } else {
             return NO_ERROR;
         }
@@ -2496,6 +2501,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         if (mForceUse[AudioSystem::FOR_RECORD] == AudioSystem::FORCE_BT_SCO &&
             mAvailableInputDevices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
+#ifdef OMAP_ENHANCEMENT
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_USB_HEADSET) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
+#endif
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -2503,6 +2512,11 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
+#ifdef OMAP_ENHANCEMENT
+        if (mAvailableInputDevices & AUDIO_DEVICE_IN_USB_HEADSET) {
+            device = AUDIO_DEVICE_IN_USB_HEADSET;
+        } else
+#endif
         if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
             device = AUDIO_DEVICE_IN_BACK_MIC;
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
@@ -3448,6 +3462,9 @@ const struct StringToEnum sDeviceNameToEnumTable[] = {
     STRING_TO_ENUM(AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_DGTL_DOCK_HEADSET),
     STRING_TO_ENUM(AUDIO_DEVICE_IN_USB_ACCESSORY),
+#ifdef OMAP_ENHANCEMENT
+    STRING_TO_ENUM(AUDIO_DEVICE_IN_USB_HEADSET),
+#endif
 };
 
 const struct StringToEnum sFlagNameToEnumTable[] = {
