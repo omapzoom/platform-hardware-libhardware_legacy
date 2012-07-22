@@ -1344,6 +1344,7 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
 #ifdef OMAP_ENHANCEMENT
     mStreamExclusiveActive = 0;
     mWFDInputInUse = 0;
+    mWFDOutput = 0;
 #endif
 
     // open hardware output
