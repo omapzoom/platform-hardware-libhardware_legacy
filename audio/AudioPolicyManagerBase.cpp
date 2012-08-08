@@ -2960,7 +2960,7 @@ void AudioPolicyManagerBase::setStreamMute(int stream,
 #ifdef OMAP_ENHANCEMENT
     if (mfmInput && (stream == AudioSystem::MUSIC) && (output == mPrimaryOutput)) {
         AudioParameter param = AudioParameter();
-        if (on) {
+        if (outputDesc->mMuteCount[stream] > 0) {
             param.addInt(String8("fm_mute"), 1);
         } else {
             param.addInt(String8("fm_mute"), 0);
