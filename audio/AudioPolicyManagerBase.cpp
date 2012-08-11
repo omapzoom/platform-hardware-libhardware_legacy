@@ -152,20 +152,49 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(AudioSystem::audio_dev
         }
 #endif
 #if defined(OMAP_ENHANCEMENT)
+       if ( (device == AudioSystem::DEVICE_OUT_WFD) &&
+           (state == AudioSystem::DEVICE_STATE_AVAILABLE) ) {
+            // open WFD output
+            AudioOutputDescriptor *outputDesc = new AudioOutputDescriptor();
+            outputDesc->mDevice = device;
+            mWFDOutput = mpClientInterface->openOutput(&outputDesc->mDevice,
+                                &outputDesc->mSamplingRate,
+                                &outputDesc->mFormat,
+                                &outputDesc->mChannels,
+                                &outputDesc->mLatency,
+                                outputDesc->mFlags);
+            if (mWFDOutput == 0) {
+                LOGE("Failed to initialize hardware output stream, samplingRate: %d, format %d, channels %d",
+                    outputDesc->mSamplingRate, outputDesc->mFormat, outputDesc->mChannels);
+                delete outputDesc;
+                return NO_INIT;
+            } else {
+                addOutput(mWFDOutput, outputDesc);
+            }
+            //Initially move audio stream types MUSIC and EXCLUSIVE to WFD output thread
+            mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mWFDOutput);
+            mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mWFDOutput);
+            mStreamExclusiveActive = 0;
+        }
+        // close WFD output
         if (device == AudioSystem::DEVICE_OUT_WFD && state ==
           AudioSystem::DEVICE_STATE_UNAVAILABLE) {
             if (mWFDOutput != 0){
-                // Move stream types MUSIC and EXCLUSIVE back to mHardwareOutput
-                mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
-                mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mHardwareOutput);
-                mStreamExclusiveActive = 0;
-
-
-                AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mWFDOutput);
-                mpClientInterface->closeOutput(mWFDOutput);
-                mOutputs.removeItem(mWFDOutput);
-                delete hwOutputDesc;
-                mWFDOutput = 0;
+                 // Move stream types MUSIC and EXCLUSIVE
+                 if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ALL_A2DP) {
+                        mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mA2dpOutput);
+                        mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mA2dpOutput);
+                 }
+                 else {
+                     mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+                     mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mHardwareOutput);
+                 }
+                 mStreamExclusiveActive = 0;
+                 AudioOutputDescriptor *hwOutputDesc = mOutputs.valueFor(mWFDOutput);
+                 mpClientInterface->closeOutput(mWFDOutput);
+                 mOutputs.removeItem(mWFDOutput);
+                 delete hwOutputDesc;
+                 mWFDOutput = 0;
            }
         }
 #endif
@@ -621,14 +650,25 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
     uint32_t a2dpDevice = device & AudioSystem::DEVICE_OUT_ALL_A2DP;
 #if defined(OMAP_ENHANCEMENT)
     uint32_t wfdDevice = device & AudioSystem::DEVICE_OUT_WFD;
-#endif
+    if (AudioSystem::popCount((AudioSystem::audio_devices)device) >= 2) {
+#else
     if (AudioSystem::popCount((AudioSystem::audio_devices)device) == 2) {
+#endif
 #ifdef WITH_A2DP
         if (a2dpUsedForSonification() && a2dpDevice != 0) {
             // if playing on 2 devices among which one is A2DP, use duplicated output
             LOGV("getOutput() using duplicated output");
             LOGW_IF((mA2dpOutput == 0), "getOutput() A2DP device in multiple %x selected but A2DP output not opened", device);
             output = mDuplicatedOutput;
+#ifdef OMAP_ENHANCEMENT    //WFD(EXCLUSIVE stream) + A2DP
+            if ((wfdDevice != 0) &&
+              ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) &&
+              mStreamExclusiveActive) {
+                output = mA2dpOutput;
+                mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mA2dpOutput);
+            }
+#endif
+
         } else
 #endif
         {
@@ -637,14 +677,15 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
         }
 #if defined(OMAP_ENHANCEMENT)
         if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::EXCLUSIVE)) {
-            // use WFD thread move MUSIC streams back to default thread
             output = mWFDOutput;
             mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+            mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mWFDOutput);
             mStreamExclusiveActive = 1;
-        }
-        else if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) && !mStreamExclusiveActive) {
-            // use WFD thread
+        } else if ((wfdDevice != 0) &&
+                        ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) &&
+                        !mStreamExclusiveActive) {
             output = mWFDOutput;
+            mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mWFDOutput);
         }
 
 #endif
@@ -662,15 +703,17 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
             output = mHardwareOutput;
         }
 #if defined(OMAP_ENHANCEMENT)
-        if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::EXCLUSIVE)) {
-            //use WFD thread move MUSIC streams back to default thread
+        if ((wfdDevice != 0) &&
+            ((AudioSystem::stream_type)stream == AudioSystem::EXCLUSIVE)) {
             output = mWFDOutput;
             mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mHardwareOutput);
+            mpClientInterface->setStreamOutput(AudioSystem::EXCLUSIVE, mWFDOutput);
             mStreamExclusiveActive = 1;
-        }
-        else if ((wfdDevice != 0) && ((AudioSystem::stream_type)stream == AudioSystem::MUSIC) && !mStreamExclusiveActive) {
-            //use WFD thread
+        } else if ((wfdDevice != 0) &&
+                    ((AudioSystem::stream_type)stream == AudioSystem::MUSIC)
+                    && !mStreamExclusiveActive) {
             output = mWFDOutput;
+            mpClientInterface->setStreamOutput(AudioSystem::MUSIC, mWFDOutput);
         }
 #endif
 
@@ -1669,13 +1712,22 @@ void AudioPolicyManagerBase::checkOutputForStrategy(routing_strategy strategy)
 {
     uint32_t prevDevice = getDeviceForStrategy(strategy);
     uint32_t curDevice = getDeviceForStrategy(strategy, false);
+#ifdef OMAP_ENHANCEMENT
+    bool a2dpWasUsed = (bool)(prevDevice & AudioSystem::DEVICE_OUT_ALL_A2DP);
+    bool a2dpIsUsed =  (bool)(curDevice & AudioSystem::DEVICE_OUT_ALL_A2DP);
+#else
     bool a2dpWasUsed = AudioSystem::isA2dpDevice((AudioSystem::audio_devices)(prevDevice & ~AudioSystem::DEVICE_OUT_SPEAKER));
     bool a2dpIsUsed = AudioSystem::isA2dpDevice((AudioSystem::audio_devices)(curDevice & ~AudioSystem::DEVICE_OUT_SPEAKER));
+#endif
     audio_io_handle_t srcOutput = 0;
     audio_io_handle_t dstOutput = 0;
 
     if (a2dpWasUsed && !a2dpIsUsed) {
+#ifdef OMAP_ENHANCEMENT
+        bool dupUsed = a2dpUsedForSonification() && a2dpWasUsed && (AudioSystem::popCount(prevDevice) >= 2);
+#else
         bool dupUsed = a2dpUsedForSonification() && a2dpWasUsed && (AudioSystem::popCount(prevDevice) == 2);
+#endif
         dstOutput = mHardwareOutput;
         if (dupUsed) {
             LOGV("checkOutputForStrategy() moving strategy %d from duplicated", strategy);
@@ -1686,7 +1738,11 @@ void AudioPolicyManagerBase::checkOutputForStrategy(routing_strategy strategy)
         }
     }
     if (a2dpIsUsed && !a2dpWasUsed) {
+#ifdef OMAP_ENHANCEMENT
+        bool dupUsed = a2dpUsedForSonification() && a2dpIsUsed && (AudioSystem::popCount(curDevice) >= 2);
+#else
         bool dupUsed = a2dpUsedForSonification() && a2dpIsUsed && (AudioSystem::popCount(curDevice) == 2);
+#endif
         srcOutput = mHardwareOutput;
         if (dupUsed) {
             LOGV("checkOutputForStrategy() moving strategy %d to duplicated", strategy);
