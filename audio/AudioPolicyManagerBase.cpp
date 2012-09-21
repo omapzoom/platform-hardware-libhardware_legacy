@@ -2212,6 +2212,12 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
             if (device) break;
             device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET;
             if (device) break;
+#ifdef OMAP_ENHANCEMENT    //Current voice call data flow ONLY between modem & default audio IC
+            if (mPhoneState == AudioSystem::MODE_IN_CALL) {
+                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_EARPIECE;
+                if (device) break;
+            }
+#endif
             device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_USB_ACCESSORY;
             if (device) break;
             device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_USB_DEVICE;
@@ -2239,6 +2245,12 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
                 device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER;
                 if (device) break;
             }
+#ifdef OMAP_ENHANCEMENT    //Current voice call data flow ONLY between modem & default audio IC
+            if (mPhoneState == AudioSystem::MODE_IN_CALL) {
+                device = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER;
+                if (device) break;
+            }
+#endif
             device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_USB_ACCESSORY;
             if (device) break;
             device = mAvailableOutputDevices & AUDIO_DEVICE_OUT_USB_DEVICE;
