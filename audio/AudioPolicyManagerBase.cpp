@@ -35,6 +35,12 @@
 #include <math.h>
 #include <hardware_legacy/audio_policy_conf.h>
 
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+// System property shared with dolby codec
+#define DOLBY_SYSTEM_PROPERTY "dolby.audio.sink.info"
+#include <cutils/properties.h>
+#endif // DOLBY_DDPDEC51_MULTICHANNEL
+
 namespace android_audio_legacy {
 
 // ----------------------------------------------------------------------------
@@ -152,6 +158,11 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
             ALOGE("setDeviceConnectionState() invalid state: %x", state);
             return BAD_VALUE;
         }
+
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+        audio_devices_t audioOutputDevice = getDeviceFromHardCodedStrategy();
+        setDolbySystemProperty(audioOutputDevice);
+#endif //DOLBY_DDPDEC51_MULTICHANNEL
 
         checkA2dpSuspend();
         checkOutputForAllStrategies();
@@ -1435,6 +1446,12 @@ AudioPolicyManagerBase::AudioPolicyManagerBase(AudioPolicyClientInterface *clien
     }
 
     initializeVolumeCurves();
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+    // Set dolby system property to speaker while booting,
+    // if any other device is plugged-in setDeviceConnectionState will be called which
+    // should set appropriate system property.
+    setDolbySystemProperty(AUDIO_DEVICE_OUT_SPEAKER);
+#endif
 
     mA2dpDeviceAddress = String8("");
     mScoDeviceAddress = String8("");
@@ -1844,12 +1861,42 @@ status_t AudioPolicyManagerBase::checkOutputsForDevice(audio_devices_t device,
                         output = 0;
                     }
                 }
+
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+                    bool supportHDMI8 = false;
+                    for (uint32_t i = 0; i < profile->mChannelMasks.size(); ++i) {
+                        audio_channel_mask_t channelMask = profile->mChannelMasks[i];
+                        if (channelMask == AUDIO_CHANNEL_OUT_7POINT1) {
+                            supportHDMI8 = true;
+                            break;
+                        }
+                    }
+
+                    if (supportHDMI8) {
+                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_8");
+                        mCurrentHdmiDeviceCapability = HDMI_8;
+                    } else {
+                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_6");
+                        mCurrentHdmiDeviceCapability = HDMI_6;
+                    }
+                }
+#endif //DOLBY_DDPDEC51_MULTICHANNEL
             }
             if (output == 0) {
                 ALOGW("checkOutputsForDevice() could not open output for device %x", device);
                 delete desc;
                 profiles.removeAt(profile_index);
                 profile_index--;
+
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+                    // Seems the current behaviour for HDMI 2 case is to have output to be
+                    // equal to 0.
+                    ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_2");
+                    mCurrentHdmiDeviceCapability = HDMI_2;
+                }
+#endif
             } else {
                 outputs.add(output);
                 ALOGV("checkOutputsForDevice(): adding output %d", output);
@@ -1861,6 +1908,12 @@ status_t AudioPolicyManagerBase::checkOutputsForDevice(audio_devices_t device,
             return BAD_VALUE;
         }
     } else {
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+        if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
+            mCurrentHdmiDeviceCapability = HDMI_INVALID;
+            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_INVALID");
+        }
+#endif //DOLBY_DDPDEC51_MULTICHANNEL
         // check if one opened output is not needed any more after disconnecting one device
         for (size_t i = 0; i < mOutputs.size(); i++) {
             desc = mOutputs.valueAt(i);
@@ -3134,6 +3187,83 @@ uint32_t AudioPolicyManagerBase::getMaxEffectsMemory()
     return MAX_EFFECTS_MEMORY;
 }
 
+
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+
+// Here we are following what Android does to choose endpoint if multiple devices are connected
+// for example if both Headphone/Headset and HDMI are plugged in, Android
+// chooses Headphone/Headset over HDMI. The below logic does the same i.e Headphone/Headset
+// is given high priority over other devices.
+//
+// This method must be modified if we consider other audio output devices eg. Bluetooth, usb_audio etc.
+// or this method can be avoided if we find a suitable place in AOSP that gives audio output device after
+// strategy, so that we can call setDolbySystemProperty directly from that place.
+//
+// Returns AudioSystem::DEVICE_OUT_DEFAULT, if the strategy for handling the current value of
+// mAvailableOutputDevices is not implemented.
+audio_devices_t AudioPolicyManagerBase::getDeviceFromHardCodedStrategy()
+{
+    if (mAvailableOutputDevices & AUDIO_DEVICE_OUT_WIRED_HEADPHONE)
+        return AUDIO_DEVICE_OUT_WIRED_HEADPHONE;
+    else if (mAvailableOutputDevices & AUDIO_DEVICE_OUT_WIRED_HEADSET)
+        return AUDIO_DEVICE_OUT_WIRED_HEADSET;
+    else if (mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL)
+        return AUDIO_DEVICE_OUT_AUX_DIGITAL;
+    else if (mAvailableOutputDevices & AUDIO_DEVICE_OUT_SPEAKER)
+        return AUDIO_DEVICE_OUT_SPEAKER;
+    else
+        return AUDIO_DEVICE_OUT_DEFAULT;
+}
+
+// Sets the dolby system property dolby.audio.sink.info
+//
+// At present we are only setting system property for Headphone/Headset/HDMI/Speaker
+// and the same is supported in DDPDecoder.cpp EndpointConfig table.
+// if new device is available eg. bluetooth or usb_audio, then system property
+// must set in this function and also its downmix configuration should be set in
+// DDPDecoder.cpp EndpointConfig table.
+void AudioPolicyManagerBase::setDolbySystemProperty(audio_devices_t device)
+{
+    ALOGV("setDolbySystemProperty device 0x%x",device);
+    switch(device) {
+        case AUDIO_DEVICE_OUT_WIRED_HEADSET:
+        case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
+            ALOGV("DOLBY_ENDPOINT HEADPHONE");
+            property_set(DOLBY_SYSTEM_PROPERTY,"headset");
+            break;
+        case AUDIO_DEVICE_OUT_AUX_DIGITAL:
+            if(mCurrentHdmiDeviceCapability == HDMI_8)
+            {
+                property_set(DOLBY_SYSTEM_PROPERTY,"hdmi8");
+                ALOGV("DOLBY_ENDPOINT HDMI8");
+            }
+            else if (mCurrentHdmiDeviceCapability == HDMI_6)
+            {
+                property_set(DOLBY_SYSTEM_PROPERTY,"hdmi6");
+                ALOGV("DOLBY_ENDPOINT HDMI6");
+            }
+            else //mCurrentHdmiDeviceCapability == HDMI_2 or unknown
+            {
+                ALOGV("DOLBY_ENDPOINT HDMI2");
+                property_set(DOLBY_SYSTEM_PROPERTY,"hdmi2");
+            }
+            break;
+        case AUDIO_DEVICE_OUT_SPEAKER:
+            ALOGV("DOLBY_ENDPOINT SPEAKER");
+            property_set(DOLBY_SYSTEM_PROPERTY,"speaker");
+            break;
+        case AUDIO_DEVICE_OUT_DEFAULT:
+            // If the strategy for handling the current value of
+            // mAvailableOutputDevices is not implemented
+            // AudioSystem::DEVICE_OUT_DEFAULT is set.
+            // fall-through
+        default:
+            ALOGV("DOLBY_ENDPOINT INVALID");
+            property_set(DOLBY_SYSTEM_PROPERTY,"invalid");
+            break;
+    }
+}
+#endif //DOLBY_DDPDEC51_MULTICHANNEL
 // --- AudioOutputDescriptor class implementation
 
 AudioPolicyManagerBase::AudioOutputDescriptor::AudioOutputDescriptor(

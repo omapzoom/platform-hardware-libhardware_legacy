@@ -465,6 +465,20 @@ protected:
         // returns the category the device belongs to with regard to volume curve management
         static device_category getDeviceCategory(audio_devices_t device);
 
+#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
+        enum HdmiDeviceCapability {
+            HDMI_8,
+            HDMI_6,
+            HDMI_2,
+            HDMI_INVALID
+        };
+
+        void setDolbySystemProperty(audio_devices_t);
+
+        audio_devices_t getDeviceFromHardCodedStrategy();
+
+        HdmiDeviceCapability            mCurrentHdmiDeviceCapability;
+#endif //DOLBY_DDPDEC51_MULTICHANNEL
         // extract one device relevant for volume control from multiple device selection
         static audio_devices_t getDeviceForVolume(audio_devices_t device);
 
