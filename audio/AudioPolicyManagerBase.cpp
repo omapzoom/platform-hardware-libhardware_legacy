@@ -16,7 +16,6 @@
 
 #define LOG_TAG "AudioPolicyManagerBase"
 //#define LOG_NDEBUG 0
-
 //#define VERY_VERBOSE_LOGGING
 #ifdef VERY_VERBOSE_LOGGING
 #define ALOGVV ALOGV
@@ -2291,6 +2290,15 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET;
         }
+#ifdef OMAP_ENHANCEMENT
+        if ((device2 == AUDIO_DEVICE_NONE) &&
+                (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_ANALOG_DOCK)) {
+            device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET;
+        }
+        if ((device2 == AUDIO_DEVICE_NONE) && (strategy != STRATEGY_SONIFICATION)) {
+            device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL;
+        }
+#else
         if ((device2 == AUDIO_DEVICE_NONE) && (strategy != STRATEGY_SONIFICATION)) {
             // no sonification on aux digital (e.g. HDMI)
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_AUX_DIGITAL;
@@ -2299,6 +2307,7 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
                 (mForceUse[AudioSystem::FOR_DOCK] == AudioSystem::FORCE_ANALOG_DOCK)) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET;
         }
+#endif
         if (device2 == AUDIO_DEVICE_NONE) {
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_SPEAKER;
         }
