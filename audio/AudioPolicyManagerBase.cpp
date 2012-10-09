@@ -16,7 +16,6 @@
 
 #define LOG_TAG "AudioPolicyManagerBase"
 //#define LOG_NDEBUG 0
-
 //#define VERY_VERBOSE_LOGGING
 #ifdef VERY_VERBOSE_LOGGING
 #define ALOGVV ALOGV
@@ -2378,10 +2377,10 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
             device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET;
         }
         if (device2 == 0) {
-            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_AUX_DIGITAL;
+            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET;
         }
         if (device2 == 0) {
-            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET;
+            device2 = mAvailableOutputDevices & AudioSystem::DEVICE_OUT_AUX_DIGITAL;
         }
 #ifdef OMAP_ENHANCEMENT
         // Once SCO connection is connected, map strategy_media to
@@ -3125,10 +3124,14 @@ uint32_t AudioPolicyManagerBase::getMaxEffectsMemory()
 // mAvailableOutputDevices is not implemented.
 AudioSystem::audio_devices AudioPolicyManagerBase::getDeviceFromHardCodedStrategy()
 {
+    ALOGV("mAvailableOutputDevices = %d", mAvailableOutputDevices);
+
     if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE)
         return AudioSystem::DEVICE_OUT_WIRED_HEADPHONE;
     else if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_WIRED_HEADSET)
         return AudioSystem::DEVICE_OUT_WIRED_HEADSET;
+    else if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)
+        return AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET;
     else if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_AUX_DIGITAL)
         return AudioSystem::DEVICE_OUT_AUX_DIGITAL;
     else if (mAvailableOutputDevices & AudioSystem::DEVICE_OUT_SPEAKER)
@@ -3150,6 +3153,7 @@ void AudioPolicyManagerBase::setDolbySystemProperty(AudioSystem::audio_devices d
     switch(device) {
         case AudioSystem::DEVICE_OUT_WIRED_HEADSET:
         case AudioSystem::DEVICE_OUT_WIRED_HEADPHONE:
+        case AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET:
             ALOGV("DOLBY_ENDPOINT HEADPHONE");
             property_set(DOLBY_SYSTEM_PROPERTY,"headset");
             break;
