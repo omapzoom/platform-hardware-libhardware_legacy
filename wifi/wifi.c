@@ -177,6 +177,16 @@ static int rmmod(const char *modname)
             break;
     }
 
+#ifdef USES_TI_MAC80211
+    /* HACK:
+     *  - To support unloading of WL7 module, on WL8 enabled builds.
+     *  - This will go away when we move to loading all modules at boot.
+     *  - Not to be used in any product.
+     */
+    if (ret < 0 && errno == ENOENT)
+        ret = delete_module("wl12xx_sdio", O_NONBLOCK | O_EXCL);
+#endif
+
     if (ret != 0)
         ALOGD("Unable to unload driver module \"%s\": %s\n",
              modname, strerror(errno));
