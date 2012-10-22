@@ -1863,21 +1863,36 @@ status_t AudioPolicyManagerBase::checkOutputsForDevice(audio_devices_t device,
 
 #ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
                 if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-                    bool supportHDMI8 = false;
                     for (uint32_t i = 0; i < profile->mChannelMasks.size(); ++i) {
+
                         audio_channel_mask_t channelMask = profile->mChannelMasks[i];
-                        if (channelMask == AUDIO_CHANNEL_OUT_7POINT1) {
-                            supportHDMI8 = true;
+
+                        ALOGV("channelMask: Size: %d", profile->mChannelMasks.size());
+                        ALOGV("channelMask: %08x", profile->mChannelMasks[i]);
+
+                        if (channelMask == 0) {
+                            ALOGV("First Entry is '0' for Direct Output ChannelMasks");
+                        }
+                        else if (channelMask == AUDIO_CHANNEL_OUT_STEREO) {
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_2");
+                            mCurrentHdmiDeviceCapability = HDMI_2;
                             break;
                         }
-                    }
-
-                    if (supportHDMI8) {
-                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_8");
-                        mCurrentHdmiDeviceCapability = HDMI_8;
-                    } else {
-                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_6");
-                        mCurrentHdmiDeviceCapability = HDMI_6;
+                        else if (channelMask == AUDIO_CHANNEL_OUT_5POINT1) {
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_6");
+                            mCurrentHdmiDeviceCapability = HDMI_6;
+                            break;
+                        }
+                        else if (channelMask == AUDIO_CHANNEL_OUT_7POINT1) {
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_8");
+                            mCurrentHdmiDeviceCapability = HDMI_8;
+                            break;
+                        }
+                        else {
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_INVALID");
+                            mCurrentHdmiDeviceCapability = HDMI_INVALID;
+                            break;
+                        }
                     }
                 }
 #endif //DOLBY_DDPDEC51_MULTICHANNEL
@@ -1887,15 +1902,6 @@ status_t AudioPolicyManagerBase::checkOutputsForDevice(audio_devices_t device,
                 delete desc;
                 profiles.removeAt(profile_index);
                 profile_index--;
-
-#ifdef OMAP_ENHANCEMENT //DOLBY_DDPDEC51_MULTICHANNEL
-                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
-                    // Seems the current behaviour for HDMI 2 case is to have output to be
-                    // equal to 0.
-                    ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_2");
-                    mCurrentHdmiDeviceCapability = HDMI_2;
-                }
-#endif
             } else {
                 outputs.add(output);
                 ALOGV("checkOutputsForDevice(): adding output %d", output);
@@ -3240,29 +3246,30 @@ void AudioPolicyManagerBase::setDolbySystemProperty(audio_devices_t device)
         case AUDIO_DEVICE_OUT_WIRED_HEADSET:
         case AUDIO_DEVICE_OUT_WIRED_HEADPHONE:
         case AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET:
-            ALOGV("DOLBY_ENDPOINT HEADPHONE");
             property_set(DOLBY_SYSTEM_PROPERTY,"headset");
+            ALOGV("DOLBY_ENDPOINT HEADPHONE/HEADSET");
             break;
         case AUDIO_DEVICE_OUT_AUX_DIGITAL:
-            if(mCurrentHdmiDeviceCapability == HDMI_8)
-            {
+            if(mCurrentHdmiDeviceCapability == HDMI_8) {
                 property_set(DOLBY_SYSTEM_PROPERTY,"hdmi8");
                 ALOGV("DOLBY_ENDPOINT HDMI8");
             }
-            else if (mCurrentHdmiDeviceCapability == HDMI_6)
-            {
+            else if (mCurrentHdmiDeviceCapability == HDMI_6) {
                 property_set(DOLBY_SYSTEM_PROPERTY,"hdmi6");
                 ALOGV("DOLBY_ENDPOINT HDMI6");
             }
-            else //mCurrentHdmiDeviceCapability == HDMI_2 or unknown
-            {
-                ALOGV("DOLBY_ENDPOINT HDMI2");
+            else if (mCurrentHdmiDeviceCapability == HDMI_2) {
                 property_set(DOLBY_SYSTEM_PROPERTY,"hdmi2");
+                ALOGV("DOLBY_ENDPOINT HDMI2");
+            }
+            else {
+                property_set(DOLBY_SYSTEM_PROPERTY,"invalid");
+                ALOGV("DOLBY_ENDPOINT INVALID");
             }
             break;
         case AUDIO_DEVICE_OUT_SPEAKER:
-            ALOGV("DOLBY_ENDPOINT SPEAKER");
             property_set(DOLBY_SYSTEM_PROPERTY,"speaker");
+            ALOGV("DOLBY_ENDPOINT SPEAKER");
             break;
         case AUDIO_DEVICE_OUT_DEFAULT:
             // If the strategy for handling the current value of
@@ -3270,8 +3277,8 @@ void AudioPolicyManagerBase::setDolbySystemProperty(audio_devices_t device)
             // AudioSystem::DEVICE_OUT_DEFAULT is set.
             // fall-through
         default:
-            ALOGV("DOLBY_ENDPOINT INVALID");
             property_set(DOLBY_SYSTEM_PROPERTY,"invalid");
+            ALOGV("DOLBY_ENDPOINT INVALID");
             break;
     }
 }
@@ -3852,6 +3859,7 @@ void AudioPolicyManagerBase::loadOutChannels(char *name, IOProfile *profile)
                                                    ARRAY_SIZE(sOutChannelsNameToEnumTable),
                                                    str);
         if (channelMask != 0) {
+            ALOGV("loadOutChannels() adding channelMask %04x", channelMask);
             profile->mChannelMasks.add(channelMask);
         }
         str = strtok(NULL, "|");
