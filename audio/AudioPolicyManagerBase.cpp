@@ -2654,14 +2654,14 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
         if (mForceUse[AudioSystem::FOR_RECORD] == AudioSystem::FORCE_BT_SCO &&
             mAvailableInputDevices & AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET) {
             device = AUDIO_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
-        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
-            device = AUDIO_DEVICE_IN_WIRED_HEADSET;
-        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
-            device = AUDIO_DEVICE_IN_BUILTIN_MIC;
 #ifdef OMAP_ENHANCEMENT
         } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_USB_HEADSET) {
             device = AUDIO_DEVICE_IN_USB_HEADSET;
 #endif
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
+            device = AUDIO_DEVICE_IN_WIRED_HEADSET;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_BUILTIN_MIC) {
+            device = AUDIO_DEVICE_IN_BUILTIN_MIC;
         }
         break;
     case AUDIO_SOURCE_CAMCORDER:
