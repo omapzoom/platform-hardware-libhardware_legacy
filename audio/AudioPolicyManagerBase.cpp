@@ -2515,7 +2515,12 @@ uint32_t AudioPolicyManagerBase::checkDeviceMuteStrategies(AudioOutputDescriptor
                     (AudioSystem::popCount(device) >= 2);
     // temporary mute output if device selection changes to avoid volume bursts due to
     // different per device volumes
+#ifdef OMAP_ENHANCEMENT
+    audio_devices_t diffDevice = device & (~prevDevice);
+    bool tempMute = (outputDesc->refCount() != 0) && (diffDevice != AUDIO_DEVICE_NONE);
+#else
     bool tempMute = (outputDesc->refCount() != 0) && (device != prevDevice);
+#endif
 
     for (size_t i = 0; i < NUM_STRATEGIES; i++) {
         audio_devices_t curDevice = getDeviceForStrategy((routing_strategy)i, false /*fromCache*/);
@@ -2541,12 +2546,23 @@ uint32_t AudioPolicyManagerBase::checkDeviceMuteStrategies(AudioOutputDescriptor
                       mute ? "muting" : "unmuting", i, curDevice, curOutput);
                 setStrategyMute((routing_strategy)i, mute, curOutput, mute ? 0 : delayMs);
                 if (desc->strategyRefCount((routing_strategy)i) != 0) {
+#ifdef OMAP_ENHANCEMENT
+                    if (tempMute && ((desc->device() != device) || (desc == outputDesc))) {
+                        setStrategyMute((routing_strategy)i, true, curOutput, 0, diffDevice);
+                        setStrategyMute((routing_strategy)i, false, curOutput,
+                                            desc->latency() * 2, diffDevice);
+#else
                     if (tempMute) {
                         setStrategyMute((routing_strategy)i, true, curOutput);
                         setStrategyMute((routing_strategy)i, false, curOutput,
                                             desc->latency() * 2, device);
+#endif
                     }
+#ifdef OMAP_ENHANCEMENT
+                    if ((tempMute && ((desc->device() != device) || (desc == outputDesc))) || mute) {
+#else
                     if (tempMute || mute) {
+#endif
                         if (muteWaitMs < desc->latency()) {
                             muteWaitMs = desc->latency();
                         }
