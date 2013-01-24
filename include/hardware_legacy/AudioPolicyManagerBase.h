@@ -346,7 +346,12 @@ protected:
         //  where conditions are changing (setDeviceConnectionState(), setPhoneState()...) AND
         //  before updateDevicesAndOutputs() is called.
         virtual audio_devices_t getDeviceForStrategy(routing_strategy strategy,
+#ifdef OMAP_ENHANCEMENT
+                                                     bool fromCache,
+                                                     AudioSystem::stream_type stream = AudioSystem::DEFAULT);
+#else
                                                      bool fromCache);
+#endif
 
         // change the route of the specified output. Returns the number of ms we have slept to
         // allow new routing to take effect in certain cases.

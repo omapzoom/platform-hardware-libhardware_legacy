@@ -628,7 +628,11 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
     audio_io_handle_t output = 0;
     uint32_t latency = 0;
     routing_strategy strategy = getStrategy((AudioSystem::stream_type)stream);
+#ifdef OMAP_ENHANCEMENT
+    audio_devices_t device = getDeviceForStrategy(strategy, false /*fromCache*/, stream);
+#else
     audio_devices_t device = getDeviceForStrategy(strategy, false /*fromCache*/);
+#endif
     ALOGV("getOutput() stream %d, samplingRate %d, format %d, channelMask %x, flags %x",
           stream, samplingRate, format, channelMask, flags);
 
@@ -2358,7 +2362,12 @@ void AudioPolicyManagerBase::handleNotificationRoutingForStream(AudioSystem::str
 }
 
 audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy strategy,
+#ifdef OMAP_ENHANCEMENT
+                                                             bool fromCache,
+                                                             AudioSystem::stream_type stream)
+#else
                                                              bool fromCache)
+#endif
 {
     uint32_t device = AUDIO_DEVICE_NONE;
 
@@ -2501,10 +2510,16 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
 
     case STRATEGY_MEDIA: {
         uint32_t device2 = AUDIO_DEVICE_NONE;
+#ifdef OMAP_ENHANCEMENT
+        if ((strategy == STRATEGY_MEDIA) && (stream == AudioSystem::MUSIC)) {
+            device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_REMOTE_SUBMIX;
+        }
+#else
         if (strategy != STRATEGY_SONIFICATION) {
             // no sonification on remote submix (e.g. WFD)
             device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_REMOTE_SUBMIX;
         }
+#endif
         if ((device2 == AUDIO_DEVICE_NONE) &&
                 mHasA2dp && (mForceUse[AudioSystem::FOR_MEDIA] != AudioSystem::FORCE_NO_BT_A2DP) &&
                 (getA2dpOutput() != 0) && !mA2dpSuspended) {
