@@ -173,7 +173,7 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
                 if ((state == AudioSystem::DEVICE_STATE_UNAVAILABLE) ||
                         (mOutputs.valueFor(outputs[i])->mFlags & AUDIO_OUTPUT_FLAG_DIRECT)) {
 #ifdef OMAP_ENHANCEMENT
-                    if ((mOutputs.valueFor(outputs[i])->mDevice & AUDIO_DEVICE_OUT_REMOTE_SUBMIX == 0) ||
+                    if (!(mOutputs.valueFor(outputs[i])->mDevice & AUDIO_DEVICE_OUT_REMOTE_SUBMIX) ||
                             ((device == AUDIO_DEVICE_OUT_REMOTE_SUBMIX) &&
                             (state == AudioSystem::DEVICE_STATE_UNAVAILABLE))) {
 #endif
@@ -898,7 +898,7 @@ void AudioPolicyManagerBase::releaseOutput(audio_io_handle_t output)
 
 #ifdef OMAP_ENHANCEMENT
     if ((mOutputs.valueAt(index)->mFlags & AudioSystem::OUTPUT_FLAG_DIRECT) &&
-            (mOutputs.valueAt(index)->mDevice & AUDIO_DEVICE_OUT_REMOTE_SUBMIX == 0)) {
+            !(mOutputs.valueAt(index)->mDevice & AUDIO_DEVICE_OUT_REMOTE_SUBMIX)) {
 #else
     if (mOutputs.valueAt(index)->mFlags & AudioSystem::OUTPUT_FLAG_DIRECT) {
 #endif
