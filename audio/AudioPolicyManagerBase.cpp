@@ -593,6 +593,32 @@ AudioPolicyManagerBase::IOProfile *AudioPolicyManagerBase::getProfileForDirectOu
     return 0;
 }
 
+#ifdef OMAP_ENHANCEMENT
+AudioPolicyManagerBase::IOProfile *AudioPolicyManagerBase::getProfileForMixerOutput(
+                                                               audio_devices_t device,
+                                                               uint32_t samplingRate,
+                                                               uint32_t format,
+                                                               uint32_t channelMask)
+{
+    for (size_t i = 0; i < mHwModules.size(); i++) {
+        if (mHwModules[i]->mHandle == 0) {
+            continue;
+        }
+        for (size_t j = 0; j < mHwModules[i]->mOutputProfiles.size(); j++) {
+           IOProfile *profile = mHwModules[i]->mOutputProfiles[j];
+           if (profile->isCompatibleProfile(device, samplingRate, format,
+                                           channelMask,
+                                           AUDIO_OUTPUT_FLAG_NONE)) {
+               if (mAvailableOutputDevices & profile->mSupportedDevices) {
+                   return mHwModules[i]->mOutputProfiles[j];
+               }
+           }
+        }
+    }
+    return 0;
+}
+#endif
+
 audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type stream,
                                     uint32_t samplingRate,
                                     uint32_t format,
@@ -638,6 +664,15 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
     }
 #endif //AUDIO_POLICY_TEST
 
+#ifdef OMAP_ENHANCEMENT
+    if (device & AUDIO_DEVICE_OUT_REMOTE_SUBMIX) {
+        SortedVector<audio_io_handle_t> outputs = getOutputsForDevice(device, mOutputs);
+        output = selectOutput(outputs, flags);
+        if (output) {
+            return output;
+        }
+    }
+#endif
     // open a direct output if required by specified parameters
     IOProfile *profile = getProfileForDirectOutput(device,
                                                    samplingRate,
@@ -684,6 +719,52 @@ audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type str
         ALOGV("getOutput() returns direct output %d", output);
         return output;
     }
+
+#ifdef OMAP_ENHANCEMENT
+    if (device & AUDIO_DEVICE_OUT_REMOTE_SUBMIX) {
+        IOProfile *profile = getProfileForMixerOutput(device,
+                                                         samplingRate,
+                                                         format,
+                                                         channelMask);
+        if (profile != NULL) {
+            AudioOutputDescriptor *outputDesc = new AudioOutputDescriptor(profile);
+            outputDesc->mDevice = device;
+            outputDesc->mSamplingRate = samplingRate;
+            outputDesc->mFormat = (audio_format_t)format;
+            outputDesc->mChannelMask = (audio_channel_mask_t)channelMask;
+            outputDesc->mLatency = 0;
+            outputDesc->mFlags = (audio_output_flags_t)(flags);
+            outputDesc->mRefCount[stream] = 0;
+            outputDesc->mStopTime[stream] = 0;
+            output = mpClientInterface->openOutput(profile->mModule->mHandle,
+                                            &outputDesc->mDevice,
+                                            &outputDesc->mSamplingRate,
+                                            &outputDesc->mFormat,
+                                            &outputDesc->mChannelMask,
+                                            &outputDesc->mLatency,
+                                            outputDesc->mFlags);
+
+            // only accept an output with the requested parameters
+            if (output == 0 ||
+                (samplingRate != 0 && samplingRate != outputDesc->mSamplingRate) ||
+                (format != 0 && format != outputDesc->mFormat) ||
+                (channelMask != 0 && channelMask != outputDesc->mChannelMask)) {
+                ALOGV("getOutput() failed opening SUBMIX output: output %d samplingRate %d %d,"
+                        "format %d %d, channelMask %04x %04x", output, samplingRate,
+                        outputDesc->mSamplingRate, format, outputDesc->mFormat, channelMask,
+                        outputDesc->mChannelMask);
+                if (output != 0) {
+                    mpClientInterface->closeOutput(output);
+                }
+                delete outputDesc;
+                return 0;
+            }
+            addOutput(output, outputDesc);
+            ALOGV("getOutput() returns SUBMIX output %d", output);
+            return output;
+        }
+    }
+#endif
 
     // ignoring channel mask due to downmix capability in mixer
 
@@ -1786,6 +1867,12 @@ status_t AudioPolicyManagerBase::checkOutputsForDevice(audio_devices_t device,
             if (j != mOutputs.size()) {
                 continue;
             }
+
+#ifdef OMAP_ENHANCEMENT
+            if (device & AUDIO_DEVICE_OUT_REMOTE_SUBMIX) {
+                continue;
+            }
+#endif
 
             ALOGV("opening output for device %08x", device);
             desc = new AudioOutputDescriptor(profile);

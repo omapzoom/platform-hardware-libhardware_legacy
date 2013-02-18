@@ -506,6 +506,12 @@ protected:
                                                        uint32_t format,
                                                        uint32_t channelMask,
                                                        audio_output_flags_t flags);
+#ifdef OMAP_ENHANCEMENT
+        IOProfile *getProfileForMixerOutput(audio_devices_t device,
+                                                       uint32_t samplingRate,
+                                                       uint32_t format,
+                                                       uint32_t channelMask);
+#endif
         //
         // Audio policy configuration file parsing (audio_policy.conf)
         //
