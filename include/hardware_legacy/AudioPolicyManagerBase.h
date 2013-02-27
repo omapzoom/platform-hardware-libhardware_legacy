@@ -439,7 +439,12 @@ protected:
         // changed: connected device, phone state, force use, output start, output stop..
         // see getDeviceForStrategy() for the use of fromCache parameter
 
+#ifdef OMAP_ENHANCEMENT
+        audio_devices_t getNewDevice(audio_io_handle_t output, bool fromCache,
+                AudioSystem::stream_type stream = AudioSystem::DEFAULT);
+#else
         audio_devices_t getNewDevice(audio_io_handle_t output, bool fromCache);
+#endif
         // updates cache of device used by all strategies (mDeviceForStrategy[])
         // must be called every time a condition that affects the device choice for a given strategy is
         // changed: connected device, phone state, force use...

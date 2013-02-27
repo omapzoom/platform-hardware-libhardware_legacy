@@ -856,7 +856,11 @@ status_t AudioPolicyManagerBase::startOutput(audio_io_handle_t output,
     outputDesc->changeRefCount(stream, 1);
 
     if (outputDesc->mRefCount[stream] == 1) {
+#ifdef OMAP_ENHANCEMENT
+        audio_devices_t newDevice = getNewDevice(output, false /*fromCache*/, stream);
+#else
         audio_devices_t newDevice = getNewDevice(output, false /*fromCache*/);
+#endif
         routing_strategy strategy = getStrategy(stream);
         bool shouldWait = (strategy == STRATEGY_SONIFICATION) ||
                             (strategy == STRATEGY_SONIFICATION_RESPECTFUL);
@@ -929,7 +933,11 @@ status_t AudioPolicyManagerBase::stopOutput(audio_io_handle_t output,
         // store time at which the stream was stopped - see isStreamActive()
         if (outputDesc->mRefCount[stream] == 0) {
             outputDesc->mStopTime[stream] = systemTime();
+#ifdef OMAP_ENHANCEMENT
+            audio_devices_t newDevice = getNewDevice(output, false /*fromCache*/, stream);
+#else
             audio_devices_t newDevice = getNewDevice(output, false /*fromCache*/);
+#endif
             // delay the device switch by twice the latency because stopOutput() is executed when
             // the track stop() command is received and at that time the audio track buffer can
             // still contain data that needs to be drained. The latency only covers the audio HAL
@@ -947,7 +955,11 @@ status_t AudioPolicyManagerBase::stopOutput(audio_io_handle_t output,
                         outputDesc->sharesHwModuleWith(desc) &&
                         newDevice != desc->device()) {
                     setOutputDevice(curOutput,
+#ifdef OMAP_ENHANCEMENT
+                                    getNewDevice(curOutput, false /*fromCache*/, stream),
+#else
                                     getNewDevice(curOutput, false /*fromCache*/),
+#endif
                                     true,
                                     outputDesc->mLatency*2);
                 }
@@ -1280,7 +1292,11 @@ status_t AudioPolicyManagerBase::getStreamVolumeIndex(AudioSystem::stream_type s
     // if device is AUDIO_DEVICE_OUT_DEFAULT, return volume for device corresponding to
     // the strategy the stream belongs to.
     if (device == AUDIO_DEVICE_OUT_DEFAULT) {
+#ifdef OMAP_ENHANCEMENT
+        device = getDeviceForStrategy(getStrategy(stream), true /*fromCache*/, stream);
+#else
         device = getDeviceForStrategy(getStrategy(stream), true /*fromCache*/);
+#endif
     }
     device = getDeviceForVolume(device);
 
@@ -1295,7 +1311,11 @@ audio_io_handle_t AudioPolicyManagerBase::getOutputForEffect(const effect_descri
     // apply simple rule where global effects are attached to the same output as MUSIC streams
 
     routing_strategy strategy = getStrategy(AudioSystem::MUSIC);
+#ifdef OMAP_ENHANCEMENT
+    audio_devices_t device = getDeviceForStrategy(strategy, false /*fromCache*/, AudioSystem::MUSIC);
+#else
     audio_devices_t device = getDeviceForStrategy(strategy, false /*fromCache*/);
+#endif
     SortedVector<audio_io_handle_t> dstOutputs = getOutputsForDevice(device, mOutputs);
     int outIdx = 0;
     for (size_t i = 0; i < dstOutputs.size(); i++) {
@@ -2273,7 +2293,12 @@ void AudioPolicyManagerBase::checkA2dpSuspend()
     }
 }
 
+#ifdef OMAP_ENHANCEMENT
+audio_devices_t AudioPolicyManagerBase::getNewDevice(audio_io_handle_t output, bool fromCache,
+                                                     AudioSystem::stream_type stream)
+#else
 audio_devices_t AudioPolicyManagerBase::getNewDevice(audio_io_handle_t output, bool fromCache)
+#endif
 {
     audio_devices_t device = AUDIO_DEVICE_NONE;
 
@@ -2301,7 +2326,11 @@ audio_devices_t AudioPolicyManagerBase::getNewDevice(audio_io_handle_t output, b
     } else if (outputDesc->isUsedByStrategy(STRATEGY_SONIFICATION_RESPECTFUL)) {
         device = getDeviceForStrategy(STRATEGY_SONIFICATION_RESPECTFUL, fromCache);
     } else if (outputDesc->isUsedByStrategy(STRATEGY_MEDIA)) {
+#ifdef OMAP_ENHANCEMENT
+        device = getDeviceForStrategy(STRATEGY_MEDIA, fromCache, stream);
+#else
         device = getDeviceForStrategy(STRATEGY_MEDIA, fromCache);
+#endif
     } else if (outputDesc->isUsedByStrategy(STRATEGY_DTMF)) {
         device = getDeviceForStrategy(STRATEGY_DTMF, fromCache);
     }
@@ -2323,7 +2352,11 @@ audio_devices_t AudioPolicyManagerBase::getDevicesForStream(AudioSystem::stream_
         devices = AUDIO_DEVICE_NONE;
     } else {
         AudioPolicyManagerBase::routing_strategy strategy = getStrategy(stream);
+#ifdef OMAP_ENHANCEMENT
+        devices = getDeviceForStrategy(strategy, true /*fromCache*/, stream);
+#else
         devices = getDeviceForStrategy(strategy, true /*fromCache*/);
+#endif
     }
     return devices;
 }
@@ -2379,6 +2412,12 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForStrategy(routing_strategy st
     if (fromCache) {
         ALOGVV("getDeviceForStrategy() from cache strategy %d, device %x",
               strategy, mDeviceForStrategy[strategy]);
+#ifdef OMAP_ENHANCEMENT
+        if ((mAvailableOutputDevices & AUDIO_DEVICE_OUT_REMOTE_SUBMIX) &&
+                (strategy == STRATEGY_MEDIA) && (stream == AudioSystem::MUSIC)) {
+            return AUDIO_DEVICE_OUT_REMOTE_SUBMIX;
+        }
+#endif
         return mDeviceForStrategy[strategy];
     }
 
@@ -3112,7 +3151,12 @@ float AudioPolicyManagerBase::computeVolume(int stream,
         // just stopped
         if (isStreamActive(AudioSystem::MUSIC, SONIFICATION_HEADSET_MUSIC_DELAY) ||
                 mLimitRingtoneVolume) {
+#ifdef OMAP_ENHANCEMENT
+            audio_devices_t musicDevice = getDeviceForStrategy(STRATEGY_MEDIA, true /*fromCache*/,
+                    (AudioSystem::stream_type)stream);
+#else
             audio_devices_t musicDevice = getDeviceForStrategy(STRATEGY_MEDIA, true /*fromCache*/);
+#endif
             float musicVol = computeVolume(AudioSystem::MUSIC,
                                mStreams[AudioSystem::MUSIC].getVolumeIndex(musicDevice),
                                output,
