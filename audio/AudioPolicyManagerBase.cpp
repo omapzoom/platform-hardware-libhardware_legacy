@@ -2524,6 +2524,8 @@ audio_devices_t AudioPolicyManagerBase::getDeviceForInputSource(int inputSource)
 #ifdef OMAP_ENHANCEMENT
         if (mAvailableInputDevices & AUDIO_DEVICE_IN_USB_HEADSET) {
             device = AUDIO_DEVICE_IN_USB_HEADSET;
+        } else if (mAvailableInputDevices & AUDIO_DEVICE_IN_WIRED_HEADSET) {
+            device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else
 #endif
         if (mAvailableInputDevices & AUDIO_DEVICE_IN_BACK_MIC) {
