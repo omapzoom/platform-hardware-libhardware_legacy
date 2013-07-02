@@ -62,7 +62,22 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
         ALOGE("setDeviceConnectionState() invalid address: %s", device_address);
         return BAD_VALUE;
     }
-
+#ifdef OMAP_ENHANCEMENT
+    String8 deviceType;
+    if (device == AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET) {
+        deviceType = mpClientInterface->getParameters(0,
+                String8(AUDIO_PARAMETER_STREAM_SUP_CHANNELS));
+        if (state == AudioSystem::DEVICE_STATE_AVAILABLE) {
+            if ((deviceType.find(AUDIO_PARAMETER_STREAM_PLAYBACK) == -1)) {
+                device = AUDIO_DEVICE_IN_USB_HEADSET;
+            }
+        } else if (state == AudioSystem::DEVICE_STATE_UNAVAILABLE) {
+            if (!(mAvailableOutputDevices & device)) {
+                device = AUDIO_DEVICE_IN_USB_HEADSET;
+            }
+        }
+    }
+#endif
     // handle output devices
     if (audio_is_output_device(device)) {
 
@@ -211,6 +226,19 @@ status_t AudioPolicyManagerBase::setDeviceConnectionState(audio_devices_t device
             return NO_ERROR;
         }
     }
+#ifdef OMAP_ENHANCEMENT
+    if (device == AUDIO_DEVICE_IN_USB_HEADSET) {
+        if (state == AudioSystem::DEVICE_STATE_AVAILABLE) {
+            if (deviceType.find(AUDIO_PARAMETER_STREAM_CAPTURE) == -1) {
+                return NO_ERROR;
+            }
+        } else if (state == AudioSystem::DEVICE_STATE_UNAVAILABLE) {
+            if (!(mAvailableInputDevices & device)) {
+                return NO_ERROR;
+            }
+        }
+    }
+#endif
     // handle input devices
     if (audio_is_input_device(device)) {
 
