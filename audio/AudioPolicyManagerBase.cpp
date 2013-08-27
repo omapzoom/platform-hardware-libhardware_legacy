@@ -508,11 +508,20 @@ AudioPolicyManagerBase::IOProfile *AudioPolicyManagerBase::getProfileForDirectOu
     return 0;
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type stream,
+                                    uint32_t samplingRate,
+                                    uint32_t format,
+                                    uint32_t channelMask,
+                                    AudioSystem::output_flags flags,
+                                    int session)
+#else
 audio_io_handle_t AudioPolicyManagerBase::getOutput(AudioSystem::stream_type stream,
                                     uint32_t samplingRate,
                                     uint32_t format,
                                     uint32_t channelMask,
                                     AudioSystem::output_flags flags)
+#endif
 {
     audio_io_handle_t output = 0;
     uint32_t latency = 0;
@@ -808,7 +817,12 @@ status_t AudioPolicyManagerBase::stopOutput(audio_io_handle_t output,
     }
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+void AudioPolicyManagerBase::releaseOutput(audio_io_handle_t output,
+                                           int session)
+#else
 void AudioPolicyManagerBase::releaseOutput(audio_io_handle_t output)
+#endif
 {
     ALOGV("releaseOutput() %d", output);
     ssize_t index = mOutputs.indexOfKey(output);
@@ -845,11 +859,20 @@ void AudioPolicyManagerBase::releaseOutput(audio_io_handle_t output)
 
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+audio_io_handle_t AudioPolicyManagerBase::getInput(int inputSource,
+                                    uint32_t samplingRate,
+                                    uint32_t format,
+                                    uint32_t channelMask,
+                                    AudioSystem::audio_in_acoustics acoustics,
+                                    int session)
+#else
 audio_io_handle_t AudioPolicyManagerBase::getInput(int inputSource,
                                     uint32_t samplingRate,
                                     uint32_t format,
                                     uint32_t channelMask,
                                     AudioSystem::audio_in_acoustics acoustics)
+#endif
 {
     audio_io_handle_t input = 0;
     audio_devices_t device = getDeviceForInputSource(inputSource);
@@ -983,7 +1006,12 @@ status_t AudioPolicyManagerBase::stopInput(audio_io_handle_t input)
     }
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+void AudioPolicyManagerBase::releaseInput(audio_io_handle_t input,
+                                          int session)
+#else
 void AudioPolicyManagerBase::releaseInput(audio_io_handle_t input)
+#endif
 {
     ALOGV("releaseInput() %d", input);
     ssize_t index = mInputs.indexOfKey(input);

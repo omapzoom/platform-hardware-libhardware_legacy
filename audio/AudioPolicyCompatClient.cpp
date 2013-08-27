@@ -145,4 +145,26 @@ status_t AudioPolicyCompatClient::setVoiceVolume(float volume, int delayMs)
     return mServiceOps->set_voice_volume(mService, volume, delayMs);
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+audio_io_handle_t AudioPolicyCompatClient::openDuplicateOutput(audio_io_handle_t outputs[],
+                                                               uint32_t numOutputs)
+{
+    return mServiceOps->open_mult_duplicate_output(mService, outputs, numOutputs);
+}
+
+int AudioPolicyCompatClient::setDuplicatingVolume(audio_io_handle_t src,
+                                                  audio_io_handle_t dest,
+                                                  float volume)
+{
+    return mServiceOps->set_duplicating_volume(mService, src, dest, volume);
+}
+
+int AudioPolicyCompatClient::setZoneVolume(audio_io_handle_t output,
+                                           int sessionId,
+                                           float volume)
+{
+    return mServiceOps->set_zone_volume(mService, output, sessionId, volume);
+}
+#endif
+
 }; // namespace android_audio_legacy

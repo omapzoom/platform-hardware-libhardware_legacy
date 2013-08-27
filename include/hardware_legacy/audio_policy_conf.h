@@ -51,4 +51,11 @@
                                     // "formats" in outputs descriptors indicating that supported
                                     // values should be queried after opening the output.
 
+#ifdef OMAP_MULTIZONE_AUDIO
+#define ZONE_AFFINITY_TAG "zone_affinity"
+#define ZONE_CABIN_TAG "CABIN"
+#define ZONE_BACKSEAT1_TAG "BACKSEAT1"
+#define ZONE_BACKSEAT2_TAG "BACKSEAT2"
+#endif
+
 #endif  // ANDROID_AUDIO_POLICY_CONF_H

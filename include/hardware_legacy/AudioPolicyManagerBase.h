@@ -82,31 +82,60 @@ public:
         virtual AudioSystem::forced_config getForceUse(AudioSystem::force_use usage);
         virtual void setSystemProperty(const char* property, const char* value);
         virtual status_t initCheck();
+#ifdef OMAP_MULTIZONE_AUDIO
+        virtual audio_io_handle_t getOutput(AudioSystem::stream_type stream,
+                                            uint32_t samplingRate = 0,
+                                            uint32_t format = AudioSystem::FORMAT_DEFAULT,
+                                            uint32_t channels = 0,
+                                            AudioSystem::output_flags flags =
+                                                    AudioSystem::OUTPUT_FLAG_INDIRECT,
+                                            int session = 0);
+#else
         virtual audio_io_handle_t getOutput(AudioSystem::stream_type stream,
                                             uint32_t samplingRate = 0,
                                             uint32_t format = AudioSystem::FORMAT_DEFAULT,
                                             uint32_t channels = 0,
                                             AudioSystem::output_flags flags =
                                                     AudioSystem::OUTPUT_FLAG_INDIRECT);
+#endif
         virtual status_t startOutput(audio_io_handle_t output,
                                      AudioSystem::stream_type stream,
                                      int session = 0);
         virtual status_t stopOutput(audio_io_handle_t output,
                                     AudioSystem::stream_type stream,
                                     int session = 0);
+#ifdef OMAP_MULTIZONE_AUDIO
+        virtual void releaseOutput(audio_io_handle_t output,
+                                   int session = 0);
+#else
         virtual void releaseOutput(audio_io_handle_t output);
+#endif
+#ifdef OMAP_MULTIZONE_AUDIO
+        virtual audio_io_handle_t getInput(int inputSource,
+                                            uint32_t samplingRate,
+                                            uint32_t format,
+                                            uint32_t channels,
+                                            AudioSystem::audio_in_acoustics acoustics,
+                                            int session = 0);
+#else
         virtual audio_io_handle_t getInput(int inputSource,
                                             uint32_t samplingRate,
                                             uint32_t format,
                                             uint32_t channels,
                                             AudioSystem::audio_in_acoustics acoustics);
+#endif
 
         // indicates to the audio policy manager that the input starts being used.
         virtual status_t startInput(audio_io_handle_t input);
 
         // indicates to the audio policy manager that the input stops being used.
         virtual status_t stopInput(audio_io_handle_t input);
+#ifdef OMAP_MULTIZONE_AUDIO
+        virtual void releaseInput(audio_io_handle_t input,
+                                  int session = 0);
+#else
         virtual void releaseInput(audio_io_handle_t input);
+#endif
         virtual void initStreamVolume(AudioSystem::stream_type stream,
                                                     int indexMin,
                                                     int indexMax);
@@ -140,6 +169,24 @@ public:
         virtual bool isSourceActive(audio_source_t source) const;
 
         virtual status_t dump(int fd);
+
+#ifdef OMAP_MULTIZONE_AUDIO
+        virtual audio_devices_t getPrimaryDevices() { return AUDIO_DEVICE_NONE; }
+        virtual audio_devices_t getZoneSupportedDevices(audio_zones_t zone) { return AUDIO_DEVICE_NONE; }
+        virtual status_t setZoneDevices(audio_zones_t zone,
+                                        audio_devices_t devices) { return NO_ERROR;}
+        virtual audio_devices_t getZoneDevices(audio_zones_t zones) { return AUDIO_DEVICE_NONE; }
+        virtual status_t setSessionZones(int session,
+                                         audio_zones_t zones) { return NO_ERROR; }
+        virtual audio_zones_t getSessionZones(int session) { return AUDIO_ZONE_NONE; }
+        virtual status_t setZoneVolume(audio_zones_t zone,
+                                       float volume) { return NO_ERROR; }
+        virtual float getZoneVolume(audio_zones_t zone) { return 1.0f; }
+        virtual status_t setSessionVolume(int session,
+                                          audio_zones_t zones,
+                                          float volume) { return NO_ERROR; }
+        virtual float getSessionVolume(int session, audio_zones_t zone) { return 1.0f; }
+#endif
 
 protected:
 

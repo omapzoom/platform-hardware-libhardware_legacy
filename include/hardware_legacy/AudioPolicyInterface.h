@@ -88,11 +88,20 @@ public:
     //
 
     // request an output appropriate for playback of the supplied stream type and parameters
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual audio_io_handle_t getOutput(AudioSystem::stream_type stream,
+                                        uint32_t samplingRate = 0,
+                                        uint32_t format = AudioSystem::FORMAT_DEFAULT,
+                                        uint32_t channels = 0,
+                                        AudioSystem::output_flags flags = AudioSystem::OUTPUT_FLAG_INDIRECT,
+                                        int session = 0) = 0;
+#else
     virtual audio_io_handle_t getOutput(AudioSystem::stream_type stream,
                                         uint32_t samplingRate = 0,
                                         uint32_t format = AudioSystem::FORMAT_DEFAULT,
                                         uint32_t channels = 0,
                                         AudioSystem::output_flags flags = AudioSystem::OUTPUT_FLAG_INDIRECT) = 0;
+#endif
     // indicates to the audio policy manager that the output starts being used by corresponding stream.
     virtual status_t startOutput(audio_io_handle_t output,
                                  AudioSystem::stream_type stream,
@@ -102,20 +111,39 @@ public:
                                 AudioSystem::stream_type stream,
                                 int session = 0) = 0;
     // releases the output.
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual void releaseOutput(audio_io_handle_t output,
+                               int session = 0) = 0;
+#else
     virtual void releaseOutput(audio_io_handle_t output) = 0;
+#endif
 
     // request an input appropriate for record from the supplied device with supplied parameters.
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual audio_io_handle_t getInput(int inputSource,
+                                    uint32_t samplingRate = 0,
+                                    uint32_t Format = AudioSystem::FORMAT_DEFAULT,
+                                    uint32_t channels = 0,
+                                    AudioSystem::audio_in_acoustics acoustics = (AudioSystem::audio_in_acoustics)0,
+                                    int session = 0) = 0;
+#else
     virtual audio_io_handle_t getInput(int inputSource,
                                     uint32_t samplingRate = 0,
                                     uint32_t Format = AudioSystem::FORMAT_DEFAULT,
                                     uint32_t channels = 0,
                                     AudioSystem::audio_in_acoustics acoustics = (AudioSystem::audio_in_acoustics)0) = 0;
+#endif
     // indicates to the audio policy manager that the input starts being used.
     virtual status_t startInput(audio_io_handle_t input) = 0;
     // indicates to the audio policy manager that the input stops being used.
     virtual status_t stopInput(audio_io_handle_t input) = 0;
     // releases the input.
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual void releaseInput(audio_io_handle_t input,
+                              int session = 0) = 0;
+#else
     virtual void releaseInput(audio_io_handle_t input) = 0;
+#endif
 
     //
     // volume control functions
@@ -162,6 +190,19 @@ public:
 
     //dump state
     virtual status_t    dump(int fd) = 0;
+
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual audio_devices_t getPrimaryDevices() = 0;
+    virtual audio_devices_t getZoneSupportedDevices(audio_zones_t zone) = 0;
+    virtual status_t setZoneDevices(audio_zones_t zone, audio_devices_t devices) = 0;
+    virtual audio_devices_t getZoneDevices(audio_zones_t zone) = 0;
+    virtual status_t setSessionZones(int session, audio_zones_t zones) = 0;
+    virtual audio_zones_t getSessionZones(int session) = 0;
+    virtual status_t setZoneVolume(audio_zones_t zone, float volume) = 0;
+    virtual float getZoneVolume(audio_zones_t zone) = 0;
+    virtual status_t setSessionVolume(int session, audio_zones_t zones, float volume) = 0;
+    virtual float getSessionVolume(int session, audio_zones_t zone) = 0;
+#endif
 };
 
 
@@ -246,6 +287,16 @@ public:
                                      audio_io_handle_t srcOutput,
                                      audio_io_handle_t dstOutput) = 0;
 
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual audio_io_handle_t openDuplicateOutput(audio_io_handle_t outputs[],
+                                                  uint32_t numOutputs) = 0;
+    virtual int setDuplicatingVolume(audio_io_handle_t src,
+                                     audio_io_handle_t dest,
+                                     float volume) = 0;
+    virtual int setZoneVolume(audio_io_handle_t output,
+                              int sessionId,
+                              float value) = 0;
+#endif
 };
 
 extern "C" AudioPolicyInterface* createAudioPolicyManager(AudioPolicyClientInterface *clientInterface);

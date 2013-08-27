@@ -133,19 +133,35 @@ static int ap_init_check(const struct audio_policy *pol)
     return lap->apm->initCheck();
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+static audio_io_handle_t ap_get_output(struct audio_policy *pol,
+                                       audio_stream_type_t stream,
+                                       uint32_t sampling_rate,
+                                       audio_format_t format,
+                                       audio_channel_mask_t channelMask,
+                                       audio_output_flags_t flags,
+                                       int session)
+#else
 static audio_io_handle_t ap_get_output(struct audio_policy *pol,
                                        audio_stream_type_t stream,
                                        uint32_t sampling_rate,
                                        audio_format_t format,
                                        audio_channel_mask_t channelMask,
                                        audio_output_flags_t flags)
+#endif
 {
     struct legacy_audio_policy *lap = to_lap(pol);
 
     ALOGV("%s: tid %d", __func__, gettid());
+#ifdef OMAP_MULTIZONE_AUDIO
+    return lap->apm->getOutput((AudioSystem::stream_type)stream,
+                               sampling_rate, (int) format, channelMask,
+                               (AudioSystem::output_flags)flags, session);
+#else
     return lap->apm->getOutput((AudioSystem::stream_type)stream,
                                sampling_rate, (int) format, channelMask,
                                (AudioSystem::output_flags)flags);
+#endif
 }
 
 static int ap_start_output(struct audio_policy *pol, audio_io_handle_t output,
@@ -164,22 +180,46 @@ static int ap_stop_output(struct audio_policy *pol, audio_io_handle_t output,
                                 session);
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+static void ap_release_output(struct audio_policy *pol,
+                              audio_io_handle_t output,
+                              int session)
+#else
 static void ap_release_output(struct audio_policy *pol,
                               audio_io_handle_t output)
+#endif
 {
     struct legacy_audio_policy *lap = to_lap(pol);
+#ifdef OMAP_MULTIZONE_AUDIO
+    lap->apm->releaseOutput(output, session);
+#else
     lap->apm->releaseOutput(output);
+#endif
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+static audio_io_handle_t ap_get_input(struct audio_policy *pol, audio_source_t inputSource,
+                                      uint32_t sampling_rate,
+                                      audio_format_t format,
+                                      audio_channel_mask_t channelMask,
+                                      audio_in_acoustics_t acoustics,
+                                      int session)
+#else
 static audio_io_handle_t ap_get_input(struct audio_policy *pol, audio_source_t inputSource,
                                       uint32_t sampling_rate,
                                       audio_format_t format,
                                       audio_channel_mask_t channelMask,
                                       audio_in_acoustics_t acoustics)
+#endif
 {
     struct legacy_audio_policy *lap = to_lap(pol);
+#ifdef OMAP_MULTIZONE_AUDIO
+    return lap->apm->getInput((int) inputSource, sampling_rate, (int) format, channelMask,
+                              (AudioSystem::audio_in_acoustics)acoustics, session);
+#else
     return lap->apm->getInput((int) inputSource, sampling_rate, (int) format, channelMask,
                               (AudioSystem::audio_in_acoustics)acoustics);
+#endif
 }
 
 static int ap_start_input(struct audio_policy *pol, audio_io_handle_t input)
@@ -194,10 +234,19 @@ static int ap_stop_input(struct audio_policy *pol, audio_io_handle_t input)
     return lap->apm->stopInput(input);
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+static void ap_release_input(struct audio_policy *pol, audio_io_handle_t input,
+                             int session)
+#else
 static void ap_release_input(struct audio_policy *pol, audio_io_handle_t input)
+#endif
 {
     struct legacy_audio_policy *lap = to_lap(pol);
+#ifdef OMAP_MULTIZONE_AUDIO
+    lap->apm->releaseInput(input, session);
+#else
     lap->apm->releaseInput(input);
+#endif
 }
 
 static void ap_init_stream_volume(struct audio_policy *pol,
@@ -321,6 +370,77 @@ static int ap_dump(const struct audio_policy *pol, int fd)
     return lap->apm->dump(fd);
 }
 
+#ifdef OMAP_MULTIZONE_AUDIO
+static audio_devices_t ap_get_primary_devices(const struct audio_policy *pol)
+{
+    const struct legacy_audio_policy *lap = to_clap(pol);
+    return lap->apm->getPrimaryDevices();
+}
+
+static audio_devices_t ap_get_zone_supported_devices(const struct audio_policy *pol,
+                                                     audio_zones_t zone)
+{
+    const struct legacy_audio_policy *lap = to_clap(pol);
+    return lap->apm->getZoneSupportedDevices(zone);
+}
+
+static int ap_set_zone_devices(struct audio_policy *pol,
+                               audio_zones_t zone, audio_devices_t devices)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->setZoneDevices(zone, devices);
+}
+
+static audio_devices_t ap_get_zone_devices(const struct audio_policy *pol,
+                                           audio_zones_t zone)
+{
+    const struct legacy_audio_policy *lap = to_clap(pol);
+    return lap->apm->getZoneDevices(zone);
+}
+
+static int ap_set_session_zones(struct audio_policy *pol,
+                                int session, audio_zones_t zones)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->setSessionZones(session, zones);
+}
+
+static audio_zones_t ap_get_session_zones(const struct audio_policy *pol,
+                                          int session)
+{
+    const struct legacy_audio_policy *lap = to_clap(pol);
+    return lap->apm->getSessionZones(session);
+}
+
+static int ap_set_zone_volume(struct audio_policy *pol,
+                              audio_zones_t zone, float volume)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->setZoneVolume(zone, volume);
+}
+
+static float ap_get_zone_volume(struct audio_policy *pol,
+                                audio_zones_t zone)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->getZoneVolume(zone);
+}
+
+static int ap_set_session_volume(struct audio_policy *pol,
+                                 int session, audio_zones_t zones, float volume)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->setSessionVolume(session, zones, volume);
+}
+
+static float ap_get_session_volume(struct audio_policy *pol,
+                                   int session, audio_zones_t zone)
+{
+    struct legacy_audio_policy *lap = to_lap(pol);
+    return lap->apm->getSessionVolume(session, zone);
+}
+#endif
+
 static int create_legacy_ap(const struct audio_policy_device *device,
                             struct audio_policy_service_ops *aps_ops,
                             void *service,
@@ -368,6 +488,18 @@ static int create_legacy_ap(const struct audio_policy_device *device,
     lap->policy.is_stream_active_remotely = ap_is_stream_active_remotely;
     lap->policy.is_source_active = ap_is_source_active;
     lap->policy.dump = ap_dump;
+#ifdef OMAP_MULTIZONE_AUDIO
+    lap->policy.get_primary_devices = ap_get_primary_devices;
+    lap->policy.get_zone_supported_devices = ap_get_zone_supported_devices;
+    lap->policy.set_zone_devices = ap_set_zone_devices;
+    lap->policy.get_zone_devices = ap_get_zone_devices;
+    lap->policy.set_session_zones = ap_set_session_zones;
+    lap->policy.get_session_zones = ap_get_session_zones;
+    lap->policy.set_zone_volume = ap_set_zone_volume;
+    lap->policy.get_zone_volume = ap_get_zone_volume;
+    lap->policy.set_session_volume = ap_set_session_volume;
+    lap->policy.get_session_volume = ap_get_session_volume;
+#endif
 
     lap->service = service;
     lap->aps_ops = aps_ops;

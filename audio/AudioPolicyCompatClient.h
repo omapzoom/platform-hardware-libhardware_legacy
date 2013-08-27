@@ -72,6 +72,17 @@ public:
     virtual status_t stopTone();
     virtual status_t setVoiceVolume(float volume, int delayMs = 0);
 
+#ifdef OMAP_MULTIZONE_AUDIO
+    virtual audio_io_handle_t openDuplicateOutput(audio_io_handle_t outputs[],
+                                                  uint32_t numOutputs);
+    virtual int setDuplicatingVolume(audio_io_handle_t src,
+                                     audio_io_handle_t dest,
+                                     float volume);
+    virtual int setZoneVolume(audio_io_handle_t output,
+                              int sessionId,
+                              float value);
+#endif
+
 private:
     struct audio_policy_service_ops* mServiceOps;
     void*                            mService;

@@ -19,15 +19,26 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 
 LOCAL_SRC_FILES := \
-    AudioPolicyManagerBase.cpp \
     AudioPolicyCompatClient.cpp \
     audio_policy_hal.cpp
+
+LOCAL_STATIC_LIBRARIES := libmedia_helper
+LOCAL_MODULE := libaudiopolicy_legacy_base
+LOCAL_MODULE_TAGS := optional
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES := \
+    AudioPolicyManagerBase.cpp
 
 ifeq ($(AUDIO_POLICY_TEST),true)
   LOCAL_CFLAGS += -DAUDIO_POLICY_TEST
 endif
 
 LOCAL_STATIC_LIBRARIES := libmedia_helper
+LOCAL_WHOLE_STATIC_LIBRARIES := libaudiopolicy_legacy_base
 LOCAL_MODULE := libaudiopolicy_legacy
 LOCAL_MODULE_TAGS := optional
 
