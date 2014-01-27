@@ -61,7 +61,13 @@ enum audio_source {
     AUDIO_SOURCE_CAMCORDER = 5,
     AUDIO_SOURCE_VOICE_RECOGNITION = 6,
     AUDIO_SOURCE_VOICE_COMMUNICATION = 7,
+#ifdef OMAP_ENHANCEMENT
+    // Skipping one to match system/audio.h
+    AUDIO_SOURCE_AUXILIARY_INPUT = 9,
+    AUDIO_SOURCE_MAX = AUDIO_SOURCE_AUXILIARY_INPUT,
+#else
     AUDIO_SOURCE_MAX = AUDIO_SOURCE_VOICE_COMMUNICATION,
+#endif
 
     AUDIO_SOURCE_LIST_END  // must be last - used to validate audio source type
 };
